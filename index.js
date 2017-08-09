@@ -19,12 +19,17 @@ function clearState() {
 function copyWorldTo(items) {
 	var all = [];
 	walker(document.body, all);
-	const SCRIPT_NODE = 'SCRIPT';
+	const NODES_TO_IGNORE = ['NOSCRIPT', 'SCRIPT', 'STYLE', 'COMMENT'];
+	
 	for (var i = 0; i < all.length; i++) {
 		if (all[i].dataset) {
 			all[i].dataset.index = i;
 		}
-		if (all[i].nodeName !== SCRIPT_NODE && all[i].parentNode.nodeName !== SCRIPT_NODE) {		
+		if (
+			!NODES_TO_IGNORE.includes(all[i].nodeName) 
+			&& 
+			!NODES_TO_IGNORE.includes(all[i].parentNode.nodeName)
+			) {
 			items.push(formatStyle(getStyleForNode(all[i]),all[i], i));
 		}
 	}

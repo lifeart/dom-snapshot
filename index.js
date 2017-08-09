@@ -1,15 +1,55 @@
+// <script src=""></script>
+
+
 var DEFAULT_STYLE = 0;
 var CACHE_KEYS = [];
 var CACHE_VALUES = [];
 var items = [];
 
-copyWorldTo(items);
-destroyWorld();
-restoreWorldFrom(items);
-console.log(getState());
-clearState();
+var head = document.getElementsByTagName('head')[0];
+var script = document.createElement('script');
+script.type = 'text/javascript';
+script.onload = function() {
+    copyWorldTo(items);
+	var config = {
+		apiKey: "AIzaSyA84vag_S0QSO7j1Eff4vZJEjdLc6wPx0M",
+		authDomain: "dom-snapshot.firebaseapp.com",
+		databaseURL: "https://dom-snapshot.firebaseio.com",
+		projectId: "dom-snapshot",
+		storageBucket: "dom-snapshot.appspot.com",
+		messagingSenderId: "578009354171"
+	};
+	  
+	firebase.initializeApp(config);
+  
+}
+script.src = 'https://www.gstatic.com/firebasejs/4.2.0/firebase.js';
+head.appendChild(script);
+
+
+function saveSnapshot() {
+	const id = Date.now();
+	firebase.database().ref(`snapshots/${id}`).set(getState());
+	console.log(`your snapshot id is ${id}`);
+}
+
+function showSnapshot(id) {
+	if (!id) {
+		id = '1502312089479';
+	}
+	firebase.database().ref('snapshots/' + id).once('value').then(function(snapshot) {
+	setState(snapshot.val());
+	destroyWorld();
+	restoreWorldFrom(items);
+  });
+}
+// copyWorldTo(items);
+// destroyWorld();
+// restoreWorldFrom(items);
+// console.log(getState());
+// clearState();
 //
-// setState('obj')
+// setState
 // restoreWorldFrom(items);
 //
 
@@ -110,6 +150,9 @@ function formatStyle(style, node, index) {
 	result.index = index;
 	result.nodeType = node.nodeType;
 	result.parent = node.parentNode?node.parentNode.dataset.index:0;
+	if (result.parent === undefined) {
+		result.parent = 0;
+	}
 	result.textContent = node.children ? "" : node.data;
 	// result.textContent = node.innerText;
 	if (![8,3].includes(node.nodeType)) {
@@ -144,8 +187,7 @@ function createNode(params) {
 		node.setAttribute(name,value);
 	});	
 
-	
-	params.styles.forEach((key)=>{
+	params.styles&&params.styles.forEach((key)=>{
 		const [name, value] = getFromOptimalValue(key);
 		node.style[name] = value;
 	});

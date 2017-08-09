@@ -9,7 +9,7 @@ restoreWorldFrom(items);
 console.log(getState());
 clearState();
 //
-// setState
+// setState('obj')
 // restoreWorldFrom(items);
 //
 
@@ -23,8 +23,8 @@ function clearState() {
 function setState(state) {
 	items = state.items.slice(0);
 	DEFAULT_STYLE = cloneObject(state.DEFAULT_STYLE);
-	CACHE_KEYS = state.items.CACHE_KEYS.slice(0);
-	CACHE_VALUES = state.items.CACHE_VALUES.slice(0);
+	CACHE_KEYS = state.CACHE_KEYS.slice(0);
+	CACHE_VALUES = state.CACHE_VALUES.slice(0);
 }
 
 function cloneObject(obj) {

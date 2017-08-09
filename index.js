@@ -6,7 +6,7 @@ var items = [];
 copyWorldTo(items);
 destroyWorld();
 restoreWorldFrom(items);
-getState();
+console.log(getState());
 clearState();
 
 function clearState() {

@@ -8,12 +8,27 @@ destroyWorld();
 restoreWorldFrom(items);
 console.log(getState());
 clearState();
+//
+// setState
+// restoreWorldFrom(items);
+//
 
 function clearState() {
 	items = [];
 	DEFAULT_STYLE = 0;
 	CACHE_KEYS = [];
 	CACHE_VALUES = [];
+}
+
+function setState(state) {
+	items = state.items.slice(0);
+	DEFAULT_STYLE = cloneObject(state.DEFAULT_STYLE);
+	CACHE_KEYS = state.items.CACHE_KEYS.slice(0);
+	CACHE_VALUES = state.items.CACHE_VALUES.slice(0);
+}
+
+function cloneObject(obj) {
+	return JSON.parse(JSON.stringify(obj));
 }
 
 function copyWorldTo(items) {
@@ -176,6 +191,6 @@ function getState() {
 		CACHE_KEYS: CACHE_KEYS.slice(0),
 		CACHE_VALUES: CACHE_VALUES.slice(0),
 		items: items.slice(0),
-		DEFAULT_STYLE: JSON.parse(JSON.stringify(DEFAULT_STYLE))
+		DEFAULT_STYLE: cloneObject(DEFAULT_STYLE)
 	}
 }

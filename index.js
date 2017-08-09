@@ -1,16 +1,24 @@
 var DEFAULT_STYLE = 0;
 var CACHE_KEYS = [];
 var CACHE_VALUES = [];
-var all = [];
 var items = [];
 
-copyWorld(all);
+copyWorldTo(items);
 destroyWorld();
-restoreWorld(items)
+restoreWorldFrom(items);
 getState();
+clearState();
 
-function copyWorld(all) {
-	walker(document.body,all);
+function clearState() {
+	items = [];
+	DEFAULT_STYLE = 0;
+	CACHE_KEYS = [];
+	CACHE_VALUES = [];
+}
+
+function copyWorldTo(items) {
+	var all = [];
+	walker(document.body, all);
 	const SCRIPT_NODE = 'SCRIPT';
 	for (var i = 0; i < all.length; i++) {
 		if (all[i].dataset) {
@@ -22,7 +30,7 @@ function copyWorld(all) {
 	}
 }
 
-function restoreWorld() {
+function restoreWorldFrom(items) {
 	items.forEach(el=>{
 		if (el && el.nodeName !== 'SCRIPT' && el.nodeType !== 8) {
 			insertNode(createNode(el),el);

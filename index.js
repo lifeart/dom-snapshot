@@ -1,5 +1,39 @@
-var elem1 = window.document.body;
-var DEFAULT_STYLE = 0;;
+var DEFAULT_STYLE = 0;
+var CACHE_KEYS = [];
+var CACHE_VALUES = [];
+var all = [];
+var items = [];
+
+copyWorld(all);
+destroyWorld();
+restoreWorld(items)
+getState();
+
+function copyWorld(all) {
+	walker(document.body,all);
+	const SCRIPT_NODE = 'SCRIPT';
+	for (var i = 0; i < all.length; i++) {
+		if (all[i].dataset) {
+			all[i].dataset.index = i;
+		}
+		if (all[i].nodeName !== SCRIPT_NODE && all[i].parentNode.nodeName !== SCRIPT_NODE) {		
+			items.push(formatStyle(getStyleForNode(all[i]),all[i], i));
+		}
+	}
+}
+
+function restoreWorld() {
+	items.forEach(el=>{
+		if (el && el.nodeName !== 'SCRIPT' && el.nodeType !== 8) {
+			insertNode(createNode(el),el);
+		}
+	});
+}
+
+function destroyWorld() {
+	document.body.innerHTML = '';
+}
+
 function getStyleForNode(element) {
 	if ([8,3].includes(element.nodeType)) {
 		return {};
@@ -37,13 +71,11 @@ function skipStyle(name, value) {
 
 function formatStyle(style, node, index) {
 	var result = {
-		style: {
-			
-		}
+		styles: []
 	};
 	Object.keys(style).forEach(el=>{
 		if (!isNumeric(el) && !skipStyle(el, style[el], node.nodeName)) {
-			result.style[el] = style[el];
+			result.styles.push(getOptimalValue(el,style[el]));
 		}
 	});
 	result.nodeName = node.nodeName;
@@ -60,33 +92,12 @@ function formatStyle(style, node, index) {
 	return result;
 }
 
-
-var all = document.body.getElementsByTagName('*');
-all = [];
-
-
 function walker(node,all=[]) {
 	var walk=document.createTreeWalker(node,NodeFilter.SHOW_ALL);
 	while(n=walk.nextNode()) {
 		all.push(n);
 	}
 }
-
-walker(document.body,all);
-
-var items = [];
-
-
-
-for (var i = 0; i < all.length; i++) {
-	if (all[i].dataset) {
-		all[i].dataset.index = i;
-	}
-	if (all[i].nodeName !== 'SCRIPT' && all[i].parentNode.nodeName !== 'SCRIPT') {		
-		items.push(formatStyle(getStyleForNode(all[i]),all[i], i));
-	}
-}
-
 
 
 function createNode(params) {
@@ -104,8 +115,11 @@ function createNode(params) {
 	params.attributes&&params.attributes.forEach(([name,value])=>{
 		node.setAttribute(name,value);
 	});	
-	Object.keys(params.style).forEach((key)=>{
-		node.style[key] = params.style[key];
+
+	
+	params.styles.forEach((key)=>{
+		const [name, value] = getFromOptimalValue(key);
+		node.style[name] = value;
 	});
 	if (node.dataset) {
 		node.dataset.parent = params.parent;
@@ -120,11 +134,35 @@ function insertNode(node, obj) {
 	parent.appendChild(node);
 }
 
-document.body.innerHTML = '';
-items.forEach(el=>{
-	if (el && el.nodeName !== 'SCRIPT' && el.nodeType !== 8) {
-		insertNode(createNode(el),el);
+
+function getFromOptimalValue(value) {
+	const [keyIndex, valueIndex] = value.split('/');
+	return [CACHE_KEYS[keyIndex], CACHE_VALUES[valueIndex]];
+}
+
+function getOptimalValue(key, value) {
+	
+	var keyIndex = CACHE_KEYS.indexOf(key);
+	var keyValue = CACHE_VALUES.indexOf(value);
+	
+	if (keyIndex === -1) {
+		CACHE_KEYS.push(key);
+		keyIndex = CACHE_KEYS.length - 1;
 	}
 	
-});
-console.log(all,items);
+	if (keyValue === -1) {
+		CACHE_VALUES.push(value);
+		keyValue = CACHE_VALUES.length - 1;
+	}
+	
+	return `${keyIndex}/${keyValue}`;
+}
+
+function getState() {
+	return {
+		CACHE_KEYS: CACHE_KEYS.slice(0),
+		CACHE_VALUES: CACHE_VALUES.slice(0),
+		items: items.slice(0),
+		DEFAULT_STYLE: JSON.parse(JSON.stringify(DEFAULT_STYLE))
+	}
+}

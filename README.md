@@ -3,10 +3,11 @@ JS methods to serialize HTML page to JSON and restore it
 
 # usage
 ```javascript
-  const snapshot = new DomSnapshot();
-  snapshot.loaded().then(()=>{
-    const id = snapshot.saveSnapshot().then((id) => {
-		snapshot.showSnapshot(id)
+	const snapshot = new DomSnapshot();
+	snapshot.loaded().then(()=>{
+		const id = snapshot.saveSnapshot().then((id) => {
+			snapshot.showSnapshot(id)
+		});
 	});
 ```
 

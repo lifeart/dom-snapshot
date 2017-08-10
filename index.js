@@ -31,6 +31,7 @@ function saveSnapshot() {
 	const id = Date.now();
 	firebase.database().ref(`snapshots/${id}`).set(getState());
 	console.log(`your snapshot id is ${id}`);
+	return id;
 }
 
 function showSnapshot(id) {
@@ -41,6 +42,7 @@ function showSnapshot(id) {
 	setState(snapshot.val());
 	destroyWorld();
 	restoreWorldFrom(items);
+	return snapshot.val();
   });
 }
 // copyWorldTo(items);

@@ -5,9 +5,9 @@ JS methods to serialize HTML page to JSON and restore it
 ```javascript
   const snapshot = new DomSnapshot();
   snapshot.loaded().then(()=>{
-    const id = snapshot.saveSnapshot();
-    snapshot.showSnapshot(id)
-  });
+    const id = snapshot.saveSnapshot().then((id) => {
+		snapshot.showSnapshot(id)
+	});
 ```
 
 # methods

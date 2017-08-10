@@ -51,17 +51,24 @@ class DomSnapshot {
 	}
 	saveSnapshot() {
 		const id = Date.now();
+		
 		this.clearState();
 		this.copyWorld();
-		this.firebase.database().ref(`snapshots/${id}`).set(this.getState());
-		console.log(`your snapshot id is ${id}`);
-		return id;
+		
+		return new Promise((resolve) => {
+			return this.firebase.database().ref(`snapshots/${id}`).set(this.getState()).then(result => {
+				return id;
+			});
+			console.log(`your snapshot id is ${id}`);
+			return id;
+		});
+		
 	}
 	restoreSnapshot(id) {
 		return this.showSnapshot(id);
 	}
 	showSnapshot(id = '1502312089479') {
-		this.firebase.database().ref('snapshots/' + id).once('value').then((snapshot) => {
+		return this.firebase.database().ref('snapshots/' + id).once('value').then((snapshot) => {
 			this.setState(snapshot.val());
 			this.destroyWorld();
 			this.restoreWorld();

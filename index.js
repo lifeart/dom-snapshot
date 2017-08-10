@@ -56,7 +56,7 @@ class DomSnapshot {
 		this.copyWorld();
 		
 		this.firebase.database().ref(`snapshots/${id}`).set(this.getState());
-		
+		console.log(`snapshot ID is: ${id}`);
 		return id;
 		
 	}

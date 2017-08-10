@@ -1,7 +1,7 @@
-# dom-snapshot
+# DomSnapshot
 JS methods to serialize HTML page to JSON and restore it
 
-# usage
+# Usage
 ```javascript
 	const snapshot = new DomSnapshot();
 	snapshot.loaded().then(()=>{
@@ -14,7 +14,7 @@ JS methods to serialize HTML page to JSON and restore it
 	});
 ```
 
-# methods
+# Methods
 `saveSnapshot()` - save current web-page as snapshot to firebase / _return snapshot id_
 
 `showSnapshot(id)` - restore page snapshot by id from firebase / _return snapshot object_
@@ -32,4 +32,6 @@ JS methods to serialize HTML page to JSON and restore it
 `destroyWorld()` - remove all document.body childrens
 
 `getStyleForNode(element)` - _return computed style from passed node_
+
+`loaded` - _return promise with loaded firebase_
 

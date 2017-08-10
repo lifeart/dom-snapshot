@@ -1,6 +1,15 @@
 # dom-snapshot
 JS methods to serialize HTML page to JSON and restore it
 
+# usage
+```javascript
+  const snapshot = new DomSnapshot();
+  snapshot.loaded().then(()=>{
+    const id = snapshot.saveSnapshot();
+    snapshot.showSnapshot(id)
+  });
+```
+
 # methods
 `saveSnapshot()` - save current web-page as snapshot to firebase / _return snapshot id_
 

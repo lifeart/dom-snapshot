@@ -55,13 +55,9 @@ class DomSnapshot {
 		this.clearState();
 		this.copyWorld();
 		
-		return new Promise((resolve) => {
-			return this.firebase.database().ref(`snapshots/${id}`).set(this.getState()).then(result => {
-				return id;
-			});
-			console.log(`your snapshot id is ${id}`);
-			return id;
-		});
+		this.firebase.database().ref(`snapshots/${id}`).set(this.getState());
+		
+		return id;
 		
 	}
 	restoreSnapshot(id) {

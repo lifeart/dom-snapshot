@@ -5,32 +5,46 @@ class DomSnapshot {
 		this.CACHE_KEYS  = state.CACHE_KEYS || [];
 		this.CACHE_VALUES = state.CACHE_VALUES || [];
 		this.items  = state.items || [];
-		this.intFirebase(fbConfig);
+		this.isLoaded = false;
+		this.fbConfig = fbConfig || {
+			apiKey: "AIzaSyA84vag_S0QSO7j1Eff4vZJEjdLc6wPx0M",
+			authDomain: "dom-snapshot.firebaseapp.com",
+			databaseURL: "https://dom-snapshot.firebaseio.com",
+			projectId: "dom-snapshot",
+			storageBucket: "dom-snapshot.appspot.com",
+			messagingSenderId: "578009354171"
+		};
+		this.intFirebase(this.fbConfig);
 	}
-	intFirebase(fbConfig) {
-		if (!fbConfig) {
-			fbConfig = {
-				apiKey: "AIzaSyA84vag_S0QSO7j1Eff4vZJEjdLc6wPx0M",
-				authDomain: "dom-snapshot.firebaseapp.com",
-				databaseURL: "https://dom-snapshot.firebaseio.com",
-				projectId: "dom-snapshot",
-				storageBucket: "dom-snapshot.appspot.com",
-				messagingSenderId: "578009354171"
-			};
-		}
+	addFbScript(resolve, reject, config) {
 		const head = document.getElementsByTagName('head')[0];
 		const script = document.createElement('script');
 		script.type = 'text/javascript';
 		script.onload = () => {
-			firebase.initializeApp(fbConfig);
+			firebase.initializeApp(config);
 			this.firebase = firebase;
-			this.onFirebaseInit();
-		}
+			this.isLoaded = true;
+			resolve(this);
+		};
+		script.onerror = (e) => {
+			reject(e);
+		};
 		script.src = 'https://www.gstatic.com/firebasejs/4.2.0/firebase.js';
 		head.appendChild(script);
 	}
-	onFirebaseInit() {
-		console.log('fb avaliable');
+	intFirebase(fbConfig) {
+		this._loaded = new Promise((resolve,reject) => {
+			if (typeof window.firebase !== 'undefined') {
+				this.firebase = firebase;
+				this.isLoaded = true;
+				return resolve(this);
+			}
+			this.addFbScript(resolve,reject,fbConfig);
+		});
+		return this._loaded;
+	}
+	loaded() {
+		return this._loaded;
 	}
 	createSnapshot() {
 		this.saveSnapshot();
@@ -48,7 +62,6 @@ class DomSnapshot {
 	}
 	showSnapshot(id = '1502312089479') {
 		this.firebase.database().ref('snapshots/' + id).once('value').then((snapshot) => {
-			console.log('snapshot', snapshot.val());
 			this.setState(snapshot.val());
 			this.destroyWorld();
 			this.restoreWorld();
@@ -74,7 +87,7 @@ class DomSnapshot {
 		return this.copyWorldTo(this.items);
 	}
 	copyWorldTo(items) {
-		const all = [];
+		var all = [];
 		this.walker(document.body, all);
 		const NODES_TO_IGNORE = ['NOSCRIPT', 'SCRIPT', 'STYLE', 'COMMENT'];
 		
@@ -160,6 +173,7 @@ class DomSnapshot {
 	}
 	walker(node, all=[]) {
 		var walk = document.createTreeWalker(node, NodeFilter.SHOW_ALL);
+		let n = null;
 		while(n = walk.nextNode()) {
 			all.push(n);
 		}

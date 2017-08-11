@@ -31,19 +31,21 @@ class DomSnapshot {
 	}
 	shouldTakeElement(node) {
 		
-		if (this.NODES_TO_IGNORE.includes(node.nodeName)) {
-			return false;
-		} 		
-		
-		if (this.NODES_TO_IGNORE.includes(node.parentNode.nodeName)) {
-			return false;
-		} 
 		
 		if(!this.restrictedNodeTypes.includes(node.nodeType)) {
 			if (this.skipDisplayNone) {
 				return node.style.display !== 'none';
 			}
 		}
+		
+		if (this.NODES_TO_IGNORE.includes(node.nodeName)) {
+			return false;
+		} 		
+		
+		if (node.parentNode && this.NODES_TO_IGNORE.includes(node.parentNode.nodeName)) {
+			return false;
+		} 
+		
 		return true;
 	}
 	addMeta(keyOrObject, value) {

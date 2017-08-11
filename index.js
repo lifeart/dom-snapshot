@@ -5,6 +5,7 @@ class DomSnapshot {
 		this.CACHE_KEYS  = state.CACHE_KEYS || [];
 		this.CACHE_VALUES = state.CACHE_VALUES || [];
 		this.items  = state.items || [];
+		this.meta = state.meta || {};
 		this.isLoaded = false;
 		this.fbConfig = fbConfig || {
 			apiKey: "AIzaSyA84vag_S0QSO7j1Eff4vZJEjdLc6wPx0M",
@@ -15,6 +16,28 @@ class DomSnapshot {
 			messagingSenderId: "578009354171"
 		};
 		this.intFirebase(this.fbConfig);
+	}
+	addMeta(keyOrObject, value) {
+		if (typeof keyOrObject === 'object') {
+			this.meta = Object.assign(this.meta, keyOrObject);
+		} else {
+			this.meta[keyOrObject] = value;
+		}
+		return this;
+	}
+	setMeta(meta) {
+		if (typeof meta !== 'object') {
+			console.log('meta should be an object');
+			return;
+		}
+		this.meta = Object.assign({},meta);
+		return this;
+	}
+	getMeta(meta) {
+		return Object.assign({},this.meta);
+	}
+	clearMeta() {
+		this.meta = {};
 	}
 	addFbScript(resolve, reject, config) {
 		const head = document.getElementsByTagName('head')[0];
@@ -73,11 +96,13 @@ class DomSnapshot {
 	}
 	clearState() {
 		this.items = [];
+		this.clearMeta();
 		this.DEFAULT_STYLE = 0;
 		this.CACHE_KEYS = [];
 		this.CACHE_VALUES = [];
 	}
 	setState(state) {
+		this.meta = this.cloneObject(state.meta) || this.meta || {};
 		this.items = state.items.slice(0);
 		this.DEFAULT_STYLE = this.cloneObject(state.DEFAULT_STYLE);
 		this.CACHE_KEYS = state.CACHE_KEYS.slice(0);
@@ -234,6 +259,7 @@ class DomSnapshot {
 	}
 	getState() {
 		return {
+			meta: this.cloneObject(this.DEFAULT_STYLE),
 			CACHE_KEYS: this.CACHE_KEYS.slice(0),
 			CACHE_VALUES: this.CACHE_VALUES.slice(0),
 			items: this.items.slice(0),

@@ -141,6 +141,9 @@ class DomSnapshot {
 		this.BODY_ATTRIBUTES = state.BODY_ATTRIBUTES.slice(0) || [];
 	}
 	cloneObject(obj) {
+		if (typeof obj === 'undefined' || obj === null) {
+			return {};
+		}
 		return JSON.parse(JSON.stringify(obj));
 	}
 	copyWorld() {

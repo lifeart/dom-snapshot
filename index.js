@@ -33,7 +33,7 @@ class DomSnapshot {
 		
 		
 		if(!this.restrictedNodeTypes.includes(node.nodeType)) {
-			if (this.skipDisplayNone) {
+			if (this.skipDisplayNone && node.style) {
 				return node.style.display !== 'none';
 			}
 		}

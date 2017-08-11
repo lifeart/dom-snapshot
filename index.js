@@ -1,12 +1,19 @@
 class DomSnapshot {
 	
-	constructor(state = {}, fbConfig = false) {
-		this.DEFAULT_STYLE = state.DEFAULT_STYLE || 0;
-		this.CACHE_KEYS  = state.CACHE_KEYS || [];
-		this.CACHE_VALUES = state.CACHE_VALUES || [];
-		this.items  = state.items || [];
-		this.meta = state.meta || {};
+	constructor(config = {}, fbConfig = false) {
+		if (!config.state) {
+			config.state = {};
+		}
+		this.DEFAULT_STYLE = config.state.DEFAULT_STYLE || 0;
+		this.CACHE_KEYS  = config.state.CACHE_KEYS || [];
+		this.CACHE_VALUES = config.state.CACHE_VALUES || [];
+		this.BODY_ATTRIBUTES = config.state.CACHE_VALUES || [];
+		this.items  = config.state.items || [];
+		this.meta = config.state.meta || {};
 		this.isLoaded = false;
+		this.NODES_TO_IGNORE = ['NOSCRIPT', 'SCRIPT', 'STYLE', 'COMMENT'];
+		this.restrictedNodeTypes = [3,8];
+		this.skipDisplayNone = true;
 		this.fbConfig = fbConfig || {
 			apiKey: "AIzaSyA84vag_S0QSO7j1Eff4vZJEjdLc6wPx0M",
 			authDomain: "dom-snapshot.firebaseapp.com",
@@ -16,6 +23,28 @@ class DomSnapshot {
 			messagingSenderId: "578009354171"
 		};
 		this.intFirebase(this.fbConfig);
+	}
+	getBodyAttributes() {
+		return Array.prototype.map.call(this.getBodyNode().attributes, el=>{
+			return [el.nodeName, el.nodeValue];
+		});		
+	}
+	shouldTakeElement(node) {
+		
+		if (this.NODES_TO_IGNORE.includes(all[i].nodeName)) {
+			return false;
+		} 		
+		
+		if (this.NODES_TO_IGNORE.includes(all[i].parentNode.nodeName)) {
+			return false;
+		} 
+		
+		if(!this.restrictedNodeTypes.includes(node.nodeType)) {
+			if (this.skipDisplayNone) {
+				return node.style.display !== 'none';
+			}
+		}
+		return true;
 	}
 	addMeta(keyOrObject, value) {
 		if (typeof keyOrObject === 'object') {
@@ -96,16 +125,18 @@ class DomSnapshot {
 	}
 	clearState() {
 		this.items = [];
-		this.DEFAULT_STYLE = 0;
 		this.CACHE_KEYS = [];
+		this.DEFAULT_STYLE = 0;
 		this.CACHE_VALUES = [];
+		this.BODY_ATTRIBUTES = [];
 	}
 	setState(state) {
 		this.meta = this.cloneObject(state.meta) || this.meta || {};
-		this.items = state.items.slice(0);
-		this.DEFAULT_STYLE = this.cloneObject(state.DEFAULT_STYLE);
-		this.CACHE_KEYS = state.CACHE_KEYS.slice(0);
-		this.CACHE_VALUES = state.CACHE_VALUES.slice(0);
+		this.items = state.items.slice(0) || [];
+		this.CACHE_KEYS = state.CACHE_KEYS.slice(0) || [];
+		this.CACHE_VALUES = state.CACHE_VALUES.slice(0) || [];
+		this.DEFAULT_STYLE = this.cloneObject(state.DEFAULT_STYLE) || {};
+		this.BODY_ATTRIBUTES = state.BODY_ATTRIBUTES.slice(0) || [];
 	}
 	cloneObject(obj) {
 		return JSON.parse(JSON.stringify(obj));
@@ -115,23 +146,28 @@ class DomSnapshot {
 	}
 	copyWorldTo(items) {
 		var all = [];
-		this.walker(document.body, all);
-		const NODES_TO_IGNORE = ['NOSCRIPT', 'SCRIPT', 'STYLE', 'COMMENT'];
+		
+		this.BODY_ATTRIBUTES = this.getBodyAttributes();
+		this.walker(this.getBodyNode(), all);
 		
 		for (let i = 0; i < all.length; i++) {
 			if (all[i].dataset) {
 				all[i].dataset.index = i;
 			}
-			if (
-				!NODES_TO_IGNORE.includes(all[i].nodeName) 
-				&& 
-				!NODES_TO_IGNORE.includes(all[i].parentNode.nodeName)
-				) {
+			if (this.shouldTakeElement(all[i].nodeName)) {
 				items.push(this.formatStyle(this.getStyleForNode(all[i]),all[i], i));
 			}
 		}
 	}
+	setBodyStyle() {
+		const body = this.getBodyNode();
+		Object.keys(this.DEFAULT_STYLE).forEach((key) => {
+			body.style[key] = this.DEFAULT_STYLE[key];
+		});
+	}
 	restoreWorld() {
+		this.setBodyAttributes();
+		this.setBodyStyle();
 		return this.restoreWorldFrom(this.items);
 	}
 	restoreWorldFrom(items) {
@@ -141,11 +177,26 @@ class DomSnapshot {
 			}
 		});
 	}
+	setBodyAttributes() {
+		const attributes = this.BODY_ATTRIBUTES;
+		const body = this.getBodyNode();
+		attributes.forEach(([name, value]) => {
+			body.setAttribute(name, value);
+		});
+	}
+	destroyBodyAttributes() {
+		const attributes = this.getBodyAttributes();
+		const body = this.getBodyNode();
+		attributes.forEach(([name]) => {
+			body.removeAttribute(name);
+		});
+	}
 	destroyWorld() {
-		document.body.innerHTML = '';
+		this.destroyBodyAttributes();
+		this.getBodyNode().innerHTML = '';
 	}
 	getStyleForNode(element) {
-		if ([8,3].includes(element.nodeType)) {
+		if (this.restrictedNodeTypes.includes(element.nodeType)) {
 			return {};
 		}
 		let style = {};
@@ -159,10 +210,13 @@ class DomSnapshot {
 	isNumeric(el) {
 		return parseInt(el,10) == el && !isNaN(el);
 	}
+	getBodyNode() {
+		return window.document.body;
+	}
 	isDefault(name, value) {
 		if (typeof this.DEFAULT_STYLE !== 'object') {
 			this.DEFAULT_STYLE = {};
-			const styleObject = this.getStyleForNode(window.document.body);
+			const styleObject = this.getStyleForNode(this.getBodyNode());
 			Object.keys(styleObject).forEach(el=>{
 				if (!this.isNumeric(el)) {
 					this.DEFAULT_STYLE[el] = styleObject[el];
@@ -191,7 +245,7 @@ class DomSnapshot {
 			result.parent = 0;
 		}
 		result.textContent = node.children ? "" : node.data;
-		if (![8,3].includes(node.nodeType)) {
+		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
 			result.attributes = Array.prototype.map.call(node.attributes, el=>{
 				return [el.nodeName, el.nodeValue];
 			});		
@@ -209,9 +263,8 @@ class DomSnapshot {
 		
 		let node = null;
 		
-		if ([8,3].includes(params.nodeType)) {
+		if (this.restrictedNodeTypes.includes(params.nodeType)) {
 			node = document.createTextNode(params.textContent);
-			
 		} else {
 			node = document.createElement(params.nodeName);
 			node.textContent = params.textContent;
@@ -232,7 +285,7 @@ class DomSnapshot {
 	}
 	insertNode(node, obj) {
 		const selector = `[data-index="${node.dataset?node.dataset.parent:obj.parent}"]`;
-		const parent = document.querySelector(selector) || document.body;
+		const parent = document.querySelector(selector) || this.getBodyNode();
 		parent.appendChild(node);
 	}
 	getFromOptimalValue(value) {
@@ -258,7 +311,8 @@ class DomSnapshot {
 	}
 	getState() {
 		return {
-			meta: this.cloneObject(this.DEFAULT_STYLE),
+			meta: this.cloneObject(this.meta),
+			BODY_ATTRIBUTES: this.BODY_ATTRIBUTES.slice(0),
 			CACHE_KEYS: this.CACHE_KEYS.slice(0),
 			CACHE_VALUES: this.CACHE_VALUES.slice(0),
 			items: this.items.slice(0),

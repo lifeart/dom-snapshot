@@ -159,7 +159,7 @@ class DomSnapshot {
 			if (all[i].dataset) {
 				all[i].dataset.index = i;
 			}
-			if (this.shouldTakeElement(all[i].nodeName)) {
+			if (this.shouldTakeElement(all[i]) {
 				items.push(this.formatStyle(this.getStyleForNode(all[i]),all[i], i));
 			}
 		}

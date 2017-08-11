@@ -96,7 +96,6 @@ class DomSnapshot {
 	}
 	clearState() {
 		this.items = [];
-		this.clearMeta();
 		this.DEFAULT_STYLE = 0;
 		this.CACHE_KEYS = [];
 		this.CACHE_VALUES = [];

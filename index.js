@@ -1,5 +1,5 @@
 class DomSnapshot {
-	// document.body.parentNode
+
 	constructor(config = {}, fbConfig = false) {
 		if (!config.state) {
 			config.state = {};
@@ -12,6 +12,9 @@ class DomSnapshot {
 		this.meta = config.state.meta || {};
 		this.isLoaded = false;
 		this.NODES_TO_IGNORE = ['NOSCRIPT', 'SCRIPT', 'STYLE', 'COMMENT'];
+		this.pseudoselectors = [
+			':after', ':before', ':first-line', ':first-letter', ':selection'
+		];
 		this.restrictedNodeTypes = [3,8];
 		this.skipDisplayNone = true;
 		this.fbConfig = fbConfig || {
@@ -28,6 +31,14 @@ class DomSnapshot {
 		return Array.prototype.map.call(this.getBodyNode().attributes, el=>{
 			return [el.nodeName, el.nodeValue];
 		});		
+	}
+	getBodyParentStyle() {
+		const body = this.getBodyNode();
+		let styleNode = {};
+		if (body.parentNode) {
+			styleNode = this.getStyleForNode(body.parentNode);
+		}
+		// get optimal style, save as special node
 	}
 	shouldTakeElement(node) {
 		
@@ -108,8 +119,10 @@ class DomSnapshot {
 		
 		this.clearState();
 		this.copyWorld();
-		
 		this.firebase.database().ref(`snapshots/${id}`).set(this.getState());
+		this.firebase.database().ref(`snapshots-list/${id}`).set({
+			visible: true
+		});
 		console.log(`snapshot ID is: ${id}`);
 		return id;
 		
@@ -200,13 +213,16 @@ class DomSnapshot {
 		this.destroyBodyAttributes();
 		this.getBodyNode().innerHTML = '';
 	}
-	getStyleForNode(element) {
+	getStyleForNode(element, pseudoselecor) {
+		if (!pseudoselecor) {
+			pseudoselecor = null;
+		}
 		if (this.restrictedNodeTypes.includes(element.nodeType)) {
 			return {};
 		}
 		let style = {};
 		try {
-			style = window.getComputedStyle(element, null);
+			style = window.getComputedStyle(element, pseudoselecor);
 		} catch (e) {
 			console.log(e, element, element.nodeType);
 		}

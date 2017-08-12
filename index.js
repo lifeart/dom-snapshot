@@ -1,5 +1,5 @@
 class DomSnapshot {
-	
+	// document.body.parentNode
 	constructor(config = {}, fbConfig = false) {
 		if (!config.state) {
 			config.state = {};

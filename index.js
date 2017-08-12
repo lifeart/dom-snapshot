@@ -138,7 +138,7 @@ class DomSnapshot {
 		this.CACHE_KEYS = state.CACHE_KEYS.slice(0) || [];
 		this.CACHE_VALUES = state.CACHE_VALUES.slice(0) || [];
 		this.DEFAULT_STYLE = this.cloneObject(state.DEFAULT_STYLE) || {};
-		this.BODY_ATTRIBUTES = state.BODY_ATTRIBUTES.slice(0) || [];
+		this.BODY_ATTRIBUTES = state.BODY_ATTRIBUTES ? state.BODY_ATTRIBUTES.slice(0) : [];
 	}
 	cloneObject(obj) {
 		if (typeof obj === 'undefined' || obj === null) {

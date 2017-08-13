@@ -119,6 +119,21 @@ class DomSnapshot {
 	loaded() {
 		return this._loaded;
 	}
+	addStyleNode(css) {
+
+		const head = document.head || document.getElementsByTagName('head')[0];
+		const style = document.createElement('style');
+
+		style.type = 'text/css';
+		if (style.styleSheet){
+			style.styleSheet.cssText = css;
+		} else {
+			style.appendChild(document.createTextNode(css));
+		}
+
+		head.appendChild(style);
+
+	}
 	createSnapshot() {
 		this.saveSnapshot();
 	}
@@ -219,9 +234,13 @@ class DomSnapshot {
 		return this.restoreWorldFrom(this.items);
 	}
 	restoreWorldFrom(items) {
+		const stylesToUppend = [];
+		const fragment = document.createDocumentFragment();
 		items.forEach(el=>{
-			this.insertNode(this.createNode(el),el);
+			this.insertNode(this.createNode(el, stylesToUppend),el, fragment);
 		});
+		this.getBodyNode().appendChild(fragment);
+		this.addStyleNode(stylesToUppend.join("\n"));
 		return this;
 	}
 	setBodyAttributes() {
@@ -333,13 +352,21 @@ class DomSnapshot {
 			all.push(n);
 		}
 	}
+	getNodeStyleText(styles) {
+		const style = [];
+		styles.forEach((key)=>{
+			const [name, value] = this.getFromOptimalValue(key);
+			style.push(`${name}:${value}`);
+		});
+		return style.join(';');
+	}
 	setNodeStyleFromStyleArray(styles, node) {
 		styles.forEach((key)=>{
 			const [name, value] = this.getFromOptimalValue(key);
 			node.style[name] = value;
 		});
 	}
-	createNode(params) {
+	createNode(params, styles) {
 		
 		let node = null;
 		
@@ -360,16 +387,21 @@ class DomSnapshot {
 			}
 		});	
 
-		params.styles && this.setNodeStyleFromStyleArray(params.styles, node);
+		// addStyleNode
+		if (params.styles) {
+			//this.setNodeStyleFromStyleArray(params.styles, node);
+			styles.push(`[data-index="${params.index}"] { ${this.getNodeStyleText(params.styles)} }`);
+		}
+
 
 		if (node.dataset) {
 			node.dataset.parent = params.parent;
 		}
 		return node;
 	}
-	insertNode(node, obj) {
+	insertNode(node, obj, fragment) {
 		const selector = `[data-index="${node.dataset?node.dataset.parent:obj.parent}"]`;
-		const parent = document.querySelector(selector) || this.getBodyNode();
+		const parent = fragment.querySelector(selector) || fragment;
 		parent.appendChild(node);
 	}
 	getFromOptimalValue(value) {

@@ -320,6 +320,8 @@ class DomSnapshot {
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
 			result.attributes = Array.prototype.map.call(node.attributes, el=>{
 				return [el.nodeName, el.nodeValue];
+			}).filter(([attrName])=>{
+				return attrName !== 'style';
 			});
 		}
 		return result;

@@ -4,14 +4,15 @@ class DomSnapshot {
 		if (!config.state) {
 			config.state = {};
 		}
-		this.DEFAULT_STYLE = config.state.DEFAULT_STYLE || 0;
+		this.BODY_STYLE = config.state.BODY_STYLE || [];
 		this.CACHE_KEYS  = config.state.CACHE_KEYS || [];
 		this.CACHE_VALUES = config.state.CACHE_VALUES || [];
 		this.BODY_ATTRIBUTES = config.state.CACHE_VALUES || [];
 		this.items  = config.state.items || [];
 		this.meta = config.state.meta || {};
+		this.HTML_STYLE = config.state.HTML_STYLE || [];
 		this.isLoaded = false;
-		this.NODES_TO_IGNORE = ['NOSCRIPT', 'SCRIPT', 'STYLE', 'COMMENT'];
+		this.NODES_TO_IGNORE = ['NOSCRIPT', 'SCRIPT', 'STYLE', '#comment', '#document', 'IFRAME'];
 		this.pseudoselectors = [
 			':after', ':before', ':first-line', ':first-letter', ':selection'
 		];
@@ -32,30 +33,37 @@ class DomSnapshot {
 			return [el.nodeName, el.nodeValue];
 		});		
 	}
+	getBodyStyle() {
+		return this.createStyleObject(this.getStyleForNode(this.getBodyNode()));
+	}
+	getHTMLStyle() {
+		return this.getBodyParentStyle();
+	}
 	getBodyParentStyle() {
 		const body = this.getBodyNode();
 		let styleNode = {};
 		if (body.parentNode) {
 			styleNode = this.getStyleForNode(body.parentNode);
 		}
+		return this.createStyleObject(styleNode);
 		// get optimal style, save as special node
 	}
 	shouldTakeElement(node) {
-		
-		
-		if(!this.restrictedNodeTypes.includes(node.nodeType)) {
-			if (this.skipDisplayNone && node.style) {
-				return node.style.display !== 'none';
-			}
-		}
-		
+
+
 		if (this.NODES_TO_IGNORE.includes(node.nodeName)) {
 			return false;
 		} 		
 		
 		if (node.parentNode && this.NODES_TO_IGNORE.includes(node.parentNode.nodeName)) {
 			return false;
-		} 
+		}
+
+		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
+			if (this.skipDisplayNone && node.style) {
+				return node.style.display !== 'none';
+			}
+		}
 		
 		return true;
 	}
@@ -141,7 +149,8 @@ class DomSnapshot {
 	clearState() {
 		this.items = [];
 		this.CACHE_KEYS = [];
-		this.DEFAULT_STYLE = 0;
+		this.BODY_STYLE = [];
+		this.HTML_STYLE = [];
 		this.CACHE_VALUES = [];
 		this.BODY_ATTRIBUTES = [];
 	}
@@ -150,7 +159,8 @@ class DomSnapshot {
 		this.items = state.items.slice(0) || [];
 		this.CACHE_KEYS = state.CACHE_KEYS.slice(0) || [];
 		this.CACHE_VALUES = state.CACHE_VALUES.slice(0) || [];
-		this.DEFAULT_STYLE = this.cloneObject(state.DEFAULT_STYLE) || {};
+		this.BODY_STYLE = state.BODY_STYLE.slice(0) || [];
+		this.HTML_STYLE = state.HTML_STYLE.slice(0) || [];
 		this.BODY_ATTRIBUTES = state.BODY_ATTRIBUTES ? state.BODY_ATTRIBUTES.slice(0) : [];
 	}
 	cloneObject(obj) {
@@ -166,6 +176,8 @@ class DomSnapshot {
 		var all = [];
 		
 		this.BODY_ATTRIBUTES = this.getBodyAttributes();
+		this.HTML_STYLE = this.styleObjectToOptimalStyleArray(this.getHTMLStyle());
+		this.BODY_STYLE = this.styleObjectToOptimalStyleArray(this.getBodyStyle());
 		this.walker(this.getBodyNode(), all);
 		
 		for (let i = 0; i < all.length; i++) {
@@ -177,23 +189,34 @@ class DomSnapshot {
 			}
 		}
 	}
-	setBodyStyle() {
-		const body = this.getBodyNode();
-		Object.keys(this.DEFAULT_STYLE).forEach((key) => {
-			body.style[key] = this.DEFAULT_STYLE[key];
+	setStyleFromObject(node, styleObject) {
+		Object.keys(styleObject).forEach((key) => {
+			node.style[key] = styleObject[key];
 		});
+		return this;
+	}
+	setHTMLStyle() {
+		const body = this.getBodyNode();
+		if (body.parentNode) {
+			this.setNodeStyleFromStyleArray(this.HTML_STYLE, body.parentNode);
+		}
+		return this;
+	}
+	setBodyStyle() {
+		this.setNodeStyleFromStyleArray(this.BODY_STYLE, this.getBodyNode());
+		return this;
 	}
 	restoreWorld() {
+		this.setHTMLStyle();
 		this.setBodyAttributes();
 		this.setBodyStyle();
 		return this.restoreWorldFrom(this.items);
 	}
 	restoreWorldFrom(items) {
 		items.forEach(el=>{
-			if (el && el.nodeName !== 'SCRIPT' && el.nodeType !== 8) {
-				this.insertNode(this.createNode(el),el);
-			}
+			this.insertNode(this.createNode(el),el);
 		});
+		return this;
 	}
 	setBodyAttributes() {
 		const attributes = this.BODY_ATTRIBUTES;
@@ -201,6 +224,7 @@ class DomSnapshot {
 		attributes.forEach(([name, value]) => {
 			body.setAttribute(name, value);
 		});
+		return this;
 	}
 	destroyBodyAttributes() {
 		const attributes = this.getBodyAttributes();
@@ -208,10 +232,12 @@ class DomSnapshot {
 		attributes.forEach(([name]) => {
 			body.removeAttribute(name);
 		});
+		return this;
 	}
 	destroyWorld() {
 		this.destroyBodyAttributes();
 		this.getBodyNode().innerHTML = '';
+		return this;
 	}
 	getStyleForNode(element, pseudoselecor) {
 		if (!pseudoselecor) {
@@ -228,40 +254,59 @@ class DomSnapshot {
 		}
 		return style;
 	}
-	isNumeric(el) {
-		return parseInt(el,10) == el && !isNaN(el);
-	}
 	getBodyNode() {
 		return window.document.body;
 	}
-	isDefault(name, value) {
-		if (typeof this.DEFAULT_STYLE !== 'object') {
-			this.DEFAULT_STYLE = {};
-			const styleObject = this.getStyleForNode(this.getBodyNode());
-			Object.keys(styleObject).forEach(el=>{
-				if (!this.isNumeric(el)) {
-					this.DEFAULT_STYLE[el] = styleObject[el];
-				}
-			});
+	createStyleObject(styleNode) {
+		const styleObject = {};
+		if (!styleNode.length) {
+			return styleObject;
 		}
-		return this.DEFAULT_STYLE[name] === value || false;
+		for (let i = 0; i < styleNode.length; i++) {
+			const propertyName = styleNode[i];
+			styleObject[propertyName] = styleNode.getPropertyValue(propertyName);
+		}
+		return styleObject;
+	}
+	isDefault(name, value) {
+		return false;
+		return this.BODY_STYLE[name] === value || false;
 	}
 	skipStyle(name, value) {
 		return this.isDefault(name, value);
 	}
-	formatStyle(style, node, index) {
+	getParentStyleByIndex(index) {
+		if (typeof index !== 'number') {
+			return this.BODY_STYLE || [];
+		} else {
+			return this.items[index].style || []
+		}
+	}
+	styleObjectToOptimalStyleArray(styleObject, parentIndex) {
+		let parentStyle = [];
+		if (parentIndex !== undefined) {
+			//parentStyle = this.getParentStyleByIndex(parentIndex);
+		}
+
+		const styles = [];
+		Object.keys(styleObject).forEach(el=>{
+			let styleKey = this.getOptimalValue(el,styleObject[el]);
+			if (!parentStyle.includes(styleKey)) {
+				styles.push(styleKey);
+			}
+		});
+		return styles;
+	}
+	formatStyle(styleNode, node, index) {
 		var result = {
 			styles: []
 		};
-		Object.keys(style).forEach(el=>{
-			if (!this.isNumeric(el) && !this.skipStyle(el, style[el], node.nodeName)) {
-				result.styles.push(this.getOptimalValue(el,style[el]));
-			}
-		});
+		const style = this.createStyleObject(styleNode);
 		result.nodeName = node.nodeName;
 		result.index = index;
 		result.nodeType = node.nodeType;
 		result.parent = node.parentNode?node.parentNode.dataset.index:0;
+		result.styles = this.styleObjectToOptimalStyleArray(style, result.parent);
 		if (result.parent === undefined) {
 			result.parent = 0;
 		}
@@ -269,7 +314,7 @@ class DomSnapshot {
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
 			result.attributes = Array.prototype.map.call(node.attributes, el=>{
 				return [el.nodeName, el.nodeValue];
-			});		
+			});
 		}
 		return result;
 	}
@@ -279,6 +324,12 @@ class DomSnapshot {
 		while(n = walk.nextNode()) {
 			all.push(n);
 		}
+	}
+	setNodeStyleFromStyleArray(styles, node) {
+		styles.forEach((key)=>{
+			const [name, value] = this.getFromOptimalValue(key);
+			node.style[name] = value;
+		});
 	}
 	createNode(params) {
 		
@@ -292,13 +343,17 @@ class DomSnapshot {
 		}	
 		
 		params.attributes&&params.attributes.forEach(([name,value])=>{
-			node.setAttribute(name,value);
+			try {
+				if (name && name !== '"') {
+					node.setAttribute(name,value);
+				}
+			} catch (e) {
+				console.log(e, node, name, value);
+			}
 		});	
 
-		params.styles&&params.styles.forEach((key)=>{
-			const [name, value] = this.getFromOptimalValue(key);
-			node.style[name] = value;
-		});
+		params.styles && this.setNodeStyleFromStyleArray(params.styles, node);
+
 		if (node.dataset) {
 			node.dataset.parent = params.parent;
 		}
@@ -333,11 +388,12 @@ class DomSnapshot {
 	getState() {
 		return {
 			meta: this.cloneObject(this.meta),
-			BODY_ATTRIBUTES: this.BODY_ATTRIBUTES.slice(0),
+			items: this.items.slice(0),
+			HTML_STYLE: this.HTML_STYLE.slice(0),
+			BODY_STYLE: this.BODY_STYLE.slice(0),
 			CACHE_KEYS: this.CACHE_KEYS.slice(0),
 			CACHE_VALUES: this.CACHE_VALUES.slice(0),
-			items: this.items.slice(0),
-			DEFAULT_STYLE: this.cloneObject(this.DEFAULT_STYLE)
+			BODY_ATTRIBUTES: this.BODY_ATTRIBUTES.slice(0)
 		}
 	}
 }

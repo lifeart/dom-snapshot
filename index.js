@@ -154,14 +154,20 @@ class DomSnapshot {
 		this.CACHE_VALUES = [];
 		this.BODY_ATTRIBUTES = [];
 	}
+	getArrayCopy(element) {
+		if (typeof element !== 'object' || element === null) {
+			return [];
+		}
+		return element.slice(0);
+	}
 	setState(state) {
 		this.meta = this.cloneObject(state.meta) || this.meta || {};
-		this.items = state.items.slice(0) || [];
-		this.CACHE_KEYS = state.CACHE_KEYS.slice(0) || [];
-		this.CACHE_VALUES = state.CACHE_VALUES.slice(0) || [];
-		this.BODY_STYLE = state.BODY_STYLE.slice(0) || [];
-		this.HTML_STYLE = state.HTML_STYLE.slice(0) || [];
-		this.BODY_ATTRIBUTES = state.BODY_ATTRIBUTES ? state.BODY_ATTRIBUTES.slice(0) : [];
+		this.items = this.getArrayCopy(state.items) || [];
+		this.CACHE_KEYS = this.getArrayCopy(state.CACHE_KEYS) || [];
+		this.CACHE_VALUES = this.getArrayCopy(state.CACHE_VALUES) || [];
+		this.BODY_STYLE = this.getArrayCopy(state.BODY_STYLE) || [];
+		this.HTML_STYLE = this.getArrayCopy(state.HTML_STYLE) || [];
+		this.BODY_ATTRIBUTES = this.getArrayCopy(state.BODY_ATTRIBUTES) || [];
 	}
 	cloneObject(obj) {
 		if (typeof obj === 'undefined' || obj === null) {
@@ -388,12 +394,12 @@ class DomSnapshot {
 	getState() {
 		return {
 			meta: this.cloneObject(this.meta),
-			items: this.items.slice(0),
-			HTML_STYLE: this.HTML_STYLE.slice(0),
-			BODY_STYLE: this.BODY_STYLE.slice(0),
-			CACHE_KEYS: this.CACHE_KEYS.slice(0),
-			CACHE_VALUES: this.CACHE_VALUES.slice(0),
-			BODY_ATTRIBUTES: this.BODY_ATTRIBUTES.slice(0)
+			items: this.getArrayCopy(this.items),
+			HTML_STYLE: this.getArrayCopy(this.HTML_STYLE),
+			BODY_STYLE: this.getArrayCopy(this.BODY_STYLE),
+			CACHE_KEYS: this.getArrayCopy(this.CACHE_KEYS),
+			CACHE_VALUES: this.getArrayCopy(this.CACHE_VALUES),
+			BODY_ATTRIBUTES: this.getArrayCopy(this.BODY_ATTRIBUTES)
 		}
 	}
 }

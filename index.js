@@ -12,9 +12,21 @@ class DomSnapshot {
 		this.meta = config.state.meta || {};
 		this.HTML_STYLE = config.state.HTML_STYLE || [];
 		this.isLoaded = false;
-		this.NODES_TO_IGNORE = ['NOSCRIPT', 'SCRIPT', 'STYLE', '#comment', '#document', 'IFRAME'];
+		this.NODES_TO_IGNORE = [
+			'IFRAME', 'NOSCRIPT', 'SCRIPT', 'STYLE', '#comment', '#document'
+		];
 		this.pseudoselectors = [
 			':after', ':before', ':first-line', ':first-letter', ':selection'
+		];
+		this.INHERIT = [
+			'azimuth', 'border-collapse', 'border-spacing', 'caption-side', 
+			'color', 'cursor', 'direction', 'elevation', 'empty-cells', 
+			'font-family', 'font-size', 'font-style', 'font-variant', 'font-weight', 
+			'font', 'letter-spacing', 'line-height', 'list-style-image', 'list-style-position', 
+			'list-style-type', 'list-style', 'orphans', 'pitch-range', 'pitch', 'quotes', 'richness', 
+			'speak-header', 'speak-numeral', 'speak-punctuation', 'speak', 
+			'speech-rate', 'stress', 'text-align', 'text-indent', 'text-transform', 
+			'visibility', 'voice-family', 'volume', 'white-space', 'widows', 'word-spacing'
 		];
 		this.restrictedNodeTypes = [3,8];
 		this.skipDisplayNone = true;
@@ -327,19 +339,24 @@ class DomSnapshot {
 		if (typeof index !== 'number') {
 			return this.BODY_STYLE || [];
 		} else {
+			for (let i = 0; i < index; i++) {
+				if (this.items[i].index === index) {
+					return this.items[i].style;
+				}
+			}
 			return this.items[index].style || []
 		}
 	}
 	styleObjectToOptimalStyleArray(styleObject, parentIndex) {
 		let parentStyle = [];
 		if (parentIndex !== undefined) {
-			//parentStyle = this.getParentStyleByIndex(parentIndex);
+			parentStyle = this.getParentStyleByIndex(parentIndex);
 		}
 
 		const styles = [];
 		Object.keys(styleObject).forEach(el=>{
 			let styleKey = this.getOptimalValue(el,styleObject[el]);
-			if (!parentStyle.includes(styleKey)) {
+			if (!(this.INHERIT.includes(el) && parentStyle.includes(styleKey))) {
 				styles.push(styleKey);
 			}
 		});

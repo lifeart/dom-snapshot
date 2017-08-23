@@ -58,10 +58,28 @@ class DomSnapshot {
 		if (node.parentNode && this.NODES_TO_IGNORE.includes(node.parentNode.nodeName)) {
 			return false;
 		}
+		
+		if (node.parentNode && node.parentNode.dataset.ignored) {
+			if (node.dataset) {
+				node.dataset.ignored = true;				
+			}
+			return false;
+		}
 
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
 			if (this.skipDisplayNone && node.style) {
-				return node.style.display !== 'none';
+					const styles = this.getStyleForNode(node);
+					if (styles.display === 'none') {
+						node.dataset.ignored = true;
+						return false;
+					}
+				    // if (styles.visibility !== 'visible') {
+						// node.dataset.ignored = true;
+						 // return false;
+					// }
+					// if (node.style.opacity < 0.05) {
+						// return false;
+					// }
 			}
 		}
 		
@@ -209,6 +227,8 @@ class DomSnapshot {
 				items.push(this.formatStyle(this.getStyleForNode(all[i]),all[i], i));
 			}
 		}
+		
+		this.cleanupStyles();
 	}
 	setStyleFromObject(node, styleObject) {
 		Object.keys(styleObject).forEach((key) => {
@@ -228,9 +248,9 @@ class DomSnapshot {
 		return this;
 	}
 	restoreWorld() {
-		this.setHTMLStyle();
+		//this.setHTMLStyle();
 		this.setBodyAttributes();
-		this.setBodyStyle();
+		//this.setBodyStyle();
 		return this.restoreWorldFrom(this.items);
 	}
 	restoreWorldFrom(items) {
@@ -240,7 +260,10 @@ class DomSnapshot {
 			this.insertNode(this.createNode(el, stylesToUppend),el, fragment);
 		});
 		this.getBodyNode().appendChild(fragment);
-		this.addStyleNode(stylesToUppend.join("\n"));
+		
+		stylesToUppend.push(`html { ${this.getNodeStyleText(this.HTML_STYLE)} }`);
+		stylesToUppend.push(`body { ${this.getNodeStyleText(this.BODY_STYLE)} }`);
+		this.addStyleNode(stylesToUppend.reverse().join("\n"));
 		return this;
 	}
 	setBodyAttributes() {
@@ -322,6 +345,26 @@ class DomSnapshot {
 		});
 		return styles;
 	}
+	cleanupStyles() {
+		const stylesToRemove  = [];
+		const styledItems = this.items.filter(e=>e.styles.length);
+		this.HTML_STYLE.forEach(style=>{
+			if (styledItems.every((el)=>el.styles.includes(style))) {
+				if (this.BODY_STYLE.includes(style)) {					
+					stylesToRemove.push(style);
+				}
+			}
+		});
+	
+		this.HTML_STYLE = this.HTML_STYLE.filter(el=>!stylesToRemove.includes(el));
+		this.BODY_STYLE = this.BODY_STYLE.filter(el=>!stylesToRemove.includes(el));
+		this.items.forEach(item=>{
+			if (item.styles.length) {
+				item.styles = item.styles.filter(el=>!stylesToRemove.includes(el));
+			}
+		});
+		this.BODY_STYLE = this.BODY_STYLE.filter(el=>!stylesToRemove.includes(el));
+	}
 	formatStyle(styleNode, node, index) {
 		var result = {
 			styles: []
@@ -388,7 +431,7 @@ class DomSnapshot {
 		});	
 
 		// addStyleNode
-		if (params.styles) {
+		if (params.styles && params.styles.length) {
 			//this.setNodeStyleFromStyleArray(params.styles, node);
 			styles.push(`[data-index="${params.index}"] { ${this.getNodeStyleText(params.styles)} }`);
 		}

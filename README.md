@@ -38,3 +38,7 @@ JS methods to serialize HTML page to JSON and restore it
 
 `loaded` - _return promise with loaded firebase_
 
+# Viwer
+An SPA for snapshots preview
+
+[dom-snapshot-ui](https://github.com/lifeart/dom-snapshot-ui)

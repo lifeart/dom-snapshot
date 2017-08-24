@@ -275,6 +275,7 @@ class DomSnapshot {
 			}
 		}
 
+		this.vacuum();
 		this.cleanupStyles();
 	}
 	setStyleFromObject(node, styleObject) {
@@ -370,6 +371,19 @@ class DomSnapshot {
 	}
 	skipStyle(name, value) {
 		return this.isDefault(name, value);
+	}
+	vacuum() {
+		const items = this.items;
+		const itemsToRemove = [];
+		items.forEach((item,index)=>{
+				let nextNode = items[index+1];
+				if (nextNode.parent === item.parent && nextNode.nodeName === item.nodeName && item.nodeName === '#text') {
+					nextNode.textContent = `${item.textContent}${nextNode.textContent}`;
+					itemsToRemove.push(index);
+				}
+			}
+		});
+		this.items = items.filter((el,index)=>!itemsToRemove.includes(index));
 	}
 	getParentStyleByIndex(index) {
 		if (typeof index !== 'number') {

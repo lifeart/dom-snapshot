@@ -265,15 +265,31 @@ class DomSnapshot {
 		this.BODY_STYLE = this.styleObjectToOptimalStyleArray(this.getBodyStyle());
 		this.walker(this.getBodyNode(), all);
 
+		const pseudoSelectorsStylesArray = [];
+		const reindexMap = {};
+
 		for (let i = 0; i < all.length; i++) {
 			if (all[i].dataset) {
 				all[i].dataset.index = i;
 			}
 			let nodeStyle = this.getStyleForNode(all[i]);
 			if (this.shouldTakeElement(all[i], nodeStyle)) {
+				if (all[i].dataset) {
+					let pseudoselecorStyles = this.getStylesForPseudoSelectors(all[i]);
+					if (pseudoselecorStyles) {
+						pseudoselecorStyles.index = i;
+						pseudoSelectorsStylesArray.push(pseudoselecorStyles);
+					}
+				}
 				items.push(this.formatStyle(nodeStyle,all[i], i));
+				reindexMap[i] = items.length - 1;
 			}
 		}
+
+		pseudoSelectorsStylesArray.forEach(el=>{
+			let item = items[reindexMap[el.index]];
+			item.pseudoselectors = el;
+		});
 
 		this.vacuum();
 		this.cleanupStyles();
@@ -335,6 +351,29 @@ class DomSnapshot {
 		this.destroyBodyAttributes();
 		this.getBodyNode().innerHTML = '';
 		return this;
+	}
+	getEqualKeysDiff(first, second) {
+		let diffs = {};
+		Object.keys(first).map(key=>{
+			if (first[key] !== second[key]) {
+				diffs[key] = [first[key], second[key]];
+			}
+		});
+		return Object.keys(diffs).length ? diffs : false;
+	}
+	getStylesForPseudoSelectors(node) {
+		const before = this.createStyleObject(this.getStyleForNode(node, ':before'));
+		const after = this.createStyleObject(this.getStyleForNode(node, ':after'));
+		const styleDiff = this.getEqualKeysDiff(before, after);
+		if (styleDiff) {
+			return {
+				before: this.styleObjectToOptimalStyleArray(before),
+				after: this.styleObjectToOptimalStyleArray(after),
+				diff: styleDiff
+			};
+		} else {
+			return false;
+		}
 	}
 	getStyleForNode(element, pseudoselecor) {
 		if (!pseudoselecor) {
@@ -503,8 +542,11 @@ class DomSnapshot {
 		if (params.styles && params.styles.length) {
 			//this.setNodeStyleFromStyleArray(params.styles, node);
 			styles.push(`[data-index="${params.index}"] { ${this.getNodeStyleText(params.styles)} }`);
+			if (params.pseudoselectors) {
+				styles.push(`[data-index="${params.index}"]:before { ${this.getNodeStyleText(params.pseudoselectors.before)} }`);
+				styles.push(`[data-index="${params.index}"]:after { ${this.getNodeStyleText(params.pseudoselectors.after)} }`);
+			}
 		}
-
 
 		if (node.dataset) {
 			node.dataset.parent = params.parent;

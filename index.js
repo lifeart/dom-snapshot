@@ -8,26 +8,69 @@ class DomSnapshot {
 		this.CACHE_KEYS  = config.state.CACHE_KEYS || [];
 		this.CACHE_VALUES = config.state.CACHE_VALUES || [];
 		this.BODY_ATTRIBUTES = config.state.CACHE_VALUES || [];
-		this.items  = config.state.items || [];
-		this.meta = config.state.meta || {};
 		this.HTML_STYLE = config.state.HTML_STYLE || [];
-		this.isLoaded = false;
-		this.NODES_TO_IGNORE = [
+		this.NODE_NAMES_TO_IGNORE = [
 			'IFRAME', 'NOSCRIPT', 'SCRIPT', 'STYLE', '#comment', '#document'
 		];
-		this.pseudoselectors = [
+		this.PSEUDOSELECTORS = [
 			':after', ':before', ':first-line', ':first-letter', ':selection'
 		];
 		this.INHERIT = [
-			'azimuth', 'border-collapse', 'border-spacing', 'caption-side', 
-			'color', 'cursor', 'direction', 'elevation', 'empty-cells', 
-			'font-family', 'font-size', 'font-style', 'font-variant', 'font-weight', 
-			'font', 'letter-spacing', 'line-height', 'list-style-image', 'list-style-position', 
-			'list-style-type', 'list-style', 'orphans', 'pitch-range', 'pitch', 'quotes', 'richness', 
-			'speak-header', 'speak-numeral', 'speak-punctuation', 'speak', 
-			'speech-rate', 'stress', 'text-align', 'text-indent', 'text-transform', 
+			'azimuth', 'border-collapse', 'border-spacing', 'caption-side',
+			'color', 'cursor', 'direction', 'elevation', 'empty-cells',
+			'font-family', 'font-size', 'font-style', 'font-variant', 'font-weight',
+			'font', 'letter-spacing', 'line-height', 'list-style-image', 'list-style-position',
+			'list-style-type', 'list-style', 'orphans', 'pitch-range', 'pitch', 'quotes', 'richness',
+			'speak-header', 'speak-numeral', 'speak-punctuation', 'speak',
+			'speech-rate', 'stress', 'text-align', 'text-indent', 'text-transform',
 			'visibility', 'voice-family', 'volume', 'white-space', 'widows', 'word-spacing'
 		];
+		this.SKIP_STYLES = {
+			"align-items": "normal",
+			"align-self": "normal",
+			"clip-path": "none",
+			"flex-basis": "auto",
+			"flex-grow": "0",
+			"flex-shrink": "1",
+			"justify-content": "normal",
+			"user-select": "text",
+			"border-bottom-left-radius": "0px",
+			"border-bottom-right-radius": "0px",
+			"border-top-right-radius": "0px",
+			"border-top-left-radius": "0px",
+			"cursor": "auto",
+			"background-position": "0% 0%",
+			"background-size": "auto",
+			"direction": "ltr",
+			"margin-bottom": "0px",
+			"margin-left": "0px",
+			"margin-right": "0px",
+			"margin-top": "0px",
+			"max-height": "none",
+			"max-width": "none",
+			"opacity": "1",
+			"padding-bottom": "0px",
+			"padding-left": "0px",
+			"padding-right": "0px",
+			"padding-top": "0px",
+			"right": "auto",
+			"speak": "normal",
+			"top": "auto",
+			"transition-delay": "0s",
+			"transition-duration": "0s",
+			"transition-property": "all",
+			"transition-timing-function": "ease",
+			"vertical-align": "baseline",
+			"visibility": "visible",
+			"white-space": "normal",
+			"widows": "2",
+			"word-break": "normal",
+			"z-index": "auto",
+		};
+
+		this.items  = config.state.items || [];
+		this.meta = config.state.meta || {};
+		this.isLoaded = false;
 		this.restrictedNodeTypes = [3,8];
 		this.skipDisplayNone = true;
 		this.fbConfig = fbConfig || {
@@ -43,7 +86,7 @@ class DomSnapshot {
 	getBodyAttributes() {
 		return Array.prototype.map.call(this.getBodyNode().attributes, el=>{
 			return [el.nodeName, el.nodeValue];
-		});		
+		});
 	}
 	getBodyStyle() {
 		return this.createStyleObject(this.getStyleForNode(this.getBodyNode()));
@@ -60,41 +103,32 @@ class DomSnapshot {
 		return this.createStyleObject(styleNode);
 		// get optimal style, save as special node
 	}
-	shouldTakeElement(node) {
+	shouldTakeElement(node, nodeStyle) {
 
-
-		if (this.NODES_TO_IGNORE.includes(node.nodeName)) {
-			return false;
-		} 		
-		
-		if (node.parentNode && this.NODES_TO_IGNORE.includes(node.parentNode.nodeName)) {
+		if (this.NODE_NAMES_TO_IGNORE.includes(node.nodeName)) {
 			return false;
 		}
-		
+
+		if (node.parentNode && this.NODE_NAMES_TO_IGNORE.includes(node.parentNode.nodeName)) {
+			return false;
+		}
+
 		if (node.parentNode && node.parentNode.dataset.ignored) {
 			if (node.dataset) {
-				node.dataset.ignored = true;				
+				node.dataset.ignored = true;
 			}
 			return false;
 		}
 
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
-			if (this.skipDisplayNone && node.style) {
-					const styles = this.getStyleForNode(node);
-					if (styles.display === 'none') {
+			if (this.skipDisplayNone && node.style && nodeStyle.length) {
+					if (nodeStyle.display === 'none') {
 						node.dataset.ignored = true;
 						return false;
 					}
-				    // if (styles.visibility !== 'visible') {
-						// node.dataset.ignored = true;
-						 // return false;
-					// }
-					// if (node.style.opacity < 0.05) {
-						// return false;
-					// }
 			}
 		}
-		
+
 		return true;
 	}
 	addMeta(keyOrObject, value) {
@@ -169,7 +203,7 @@ class DomSnapshot {
 	}
 	saveSnapshot() {
 		const id = Date.now();
-		
+
 		this.clearState();
 		this.copyWorld();
 		this.firebase.database().ref(`snapshots/${id}`).set(this.getState());
@@ -178,7 +212,7 @@ class DomSnapshot {
 		});
 		console.log(`snapshot ID is: ${id}`);
 		return id;
-		
+
 	}
 	restoreSnapshot(id) {
 		return this.showSnapshot(id);
@@ -225,21 +259,22 @@ class DomSnapshot {
 	}
 	copyWorldTo(items) {
 		var all = [];
-		
+
 		this.BODY_ATTRIBUTES = this.getBodyAttributes();
 		this.HTML_STYLE = this.styleObjectToOptimalStyleArray(this.getHTMLStyle());
 		this.BODY_STYLE = this.styleObjectToOptimalStyleArray(this.getBodyStyle());
 		this.walker(this.getBodyNode(), all);
-		
+
 		for (let i = 0; i < all.length; i++) {
 			if (all[i].dataset) {
 				all[i].dataset.index = i;
 			}
-			if (this.shouldTakeElement(all[i])) {
-				items.push(this.formatStyle(this.getStyleForNode(all[i]),all[i], i));
+			let nodeStyle = this.getStyleForNode(all[i]);
+			if (this.shouldTakeElement(all[i], nodeStyle)) {
+				items.push(this.formatStyle(nodeStyle,all[i], i));
 			}
 		}
-		
+
 		this.cleanupStyles();
 	}
 	setStyleFromObject(node, styleObject) {
@@ -268,11 +303,12 @@ class DomSnapshot {
 	restoreWorldFrom(items) {
 		const stylesToUppend = [];
 		const fragment = document.createDocumentFragment();
+
 		items.forEach(el=>{
 			this.insertNode(this.createNode(el, stylesToUppend),el, fragment);
 		});
 		this.getBodyNode().appendChild(fragment);
-		
+
 		stylesToUppend.push(`html { ${this.getNodeStyleText(this.HTML_STYLE)} }`);
 		stylesToUppend.push(`body { ${this.getNodeStyleText(this.BODY_STYLE)} }`);
 		this.addStyleNode(stylesToUppend.reverse().join("\n"));
@@ -356,7 +392,7 @@ class DomSnapshot {
 		const styles = [];
 		Object.keys(styleObject).forEach(el=>{
 			let styleKey = this.getOptimalValue(el,styleObject[el]);
-			if (!(this.INHERIT.includes(el) && parentStyle.includes(styleKey))) {
+			if (styleKey && !(this.INHERIT.includes(el) && parentStyle.includes(styleKey))) {
 				styles.push(styleKey);
 			}
 		});
@@ -367,12 +403,12 @@ class DomSnapshot {
 		const styledItems = this.items.filter(e=>e.styles.length);
 		this.HTML_STYLE.forEach(style=>{
 			if (styledItems.every((el)=>el.styles.includes(style))) {
-				if (this.BODY_STYLE.includes(style)) {					
+				if (this.BODY_STYLE.includes(style)) {
 					stylesToRemove.push(style);
 				}
 			}
 		});
-	
+
 		this.HTML_STYLE = this.HTML_STYLE.filter(el=>!stylesToRemove.includes(el));
 		this.BODY_STYLE = this.BODY_STYLE.filter(el=>!stylesToRemove.includes(el));
 		this.items.forEach(item=>{
@@ -427,16 +463,16 @@ class DomSnapshot {
 		});
 	}
 	createNode(params, styles) {
-		
+
 		let node = null;
-		
+
 		if (this.restrictedNodeTypes.includes(params.nodeType)) {
 			node = document.createTextNode(params.textContent);
 		} else {
 			node = document.createElement(params.nodeName);
 			node.textContent = params.textContent;
-		}	
-		
+		}
+
 		params.attributes&&params.attributes.forEach(([name,value])=>{
 			try {
 				if (name && name !== '"') {
@@ -445,7 +481,7 @@ class DomSnapshot {
 			} catch (e) {
 				console.log(e, node, name, value);
 			}
-		});	
+		});
 
 		// addStyleNode
 		if (params.styles && params.styles.length) {
@@ -469,20 +505,24 @@ class DomSnapshot {
 		return [this.CACHE_KEYS[keyIndex], this.CACHE_VALUES[valueIndex]];
 	}
 	getOptimalValue(key, value) {
-		
+
+		if (this.SKIP_STYLES[key] === value) {
+			return false;
+		}
+
 		let keyIndex = this.CACHE_KEYS.indexOf(key);
 		let keyValue = this.CACHE_VALUES.indexOf(value);
-		
+
 		if (keyIndex === -1) {
 			this.CACHE_KEYS.push(key);
 			keyIndex = this.CACHE_KEYS.length - 1;
 		}
-		
+
 		if (keyValue === -1) {
 			this.CACHE_VALUES.push(value);
 			keyValue = this.CACHE_VALUES.length - 1;
 		}
-		
+
 		return `${keyIndex}/${keyValue}`;
 	}
 	getState() {

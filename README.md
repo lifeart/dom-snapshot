@@ -2,6 +2,9 @@
 JS methods to serialize HTML page to JSON and restore it
 
 # Usage
+```html
+  <script src="https://gitcdn.xyz/cdn/lifeart/dom-snapshot/master/index.js"></script>
+```
 ```javascript
 	const snapshot = new DomSnapshot();
 	snapshot.loaded().then(()=>{

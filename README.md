@@ -1,5 +1,5 @@
 # DomSnapshot
-JS methods to serialize HTML page to JSON and restore it
+JS methods to serialize rendered HTML page to JSON and restore it
 
 # Usage
 ```html

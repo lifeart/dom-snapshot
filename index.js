@@ -375,7 +375,9 @@ class DomSnapshot {
 	vacuum() {
 		const items = this.items;
 		const itemsToRemove = [];
+		const lastItemIndex = items.length - 1;
 		items.forEach((item,index)=>{
+			if (lastItemIndex !== index) {
 				let nextNode = items[index+1];
 				if (nextNode.parent === item.parent && nextNode.nodeName === item.nodeName && item.nodeName === '#text') {
 					nextNode.textContent = `${item.textContent}${nextNode.textContent}`;

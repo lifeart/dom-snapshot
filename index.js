@@ -100,7 +100,7 @@ class DomSnapshot {
 		if (svgResult && element.dataset) {
 			element.dataset.svg = true;
 		}
-		return svgResult;
+		return svgResult || false;
 	}
 	getBodyAttributes() {
 		return Array.prototype.map.call(this.getBodyNode().attributes, el=>{

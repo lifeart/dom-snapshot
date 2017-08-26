@@ -90,6 +90,7 @@ class DomSnapshot {
 		return {
 			userAgent: navigator.userAgent,
 			hostname: window.location.hostname,
+			protocol: window.location.protocol,
 			url: window.location.href,
 			screenWidth: window.screen.width,
 			screenHeight: window.screen.height,
@@ -97,6 +98,16 @@ class DomSnapshot {
 			screenAvailHeight: window.screen.availHeight,
 			timestamp: Date.now()
 		};
+	}
+	patchAttribute(name, value) {
+		if (['src','href'].includes(name)) {
+			if (['/','#'].includes(String(value).charAt(0))) {
+				if (this.meta.hostname && this.meta.protocol) {
+					return `${this.meta.protocol}//${this.meta.hostname}${value}`;
+				}
+			}
+		}
+		return value;
 	}
 	isSVG(element) {
 		// https://www.w3.org/TR/SVG/propidx.html
@@ -294,7 +305,7 @@ class DomSnapshot {
 	}
 	copyWorldTo(items) {
 		var all = [];
-
+		this.meta = this.collectMeta();
 		this.BODY_ATTRIBUTES = this.getBodyAttributes();
 		this.HTML_STYLE = this.styleObjectToOptimalStyleArray(this.getHTMLStyle());
 		this.BODY_STYLE = this.styleObjectToOptimalStyleArray(this.getBodyStyle());
@@ -530,7 +541,7 @@ class DomSnapshot {
 		result.textContent = node.children ? "" : node.data;
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
 			result.attributes = Array.prototype.map.call(node.attributes, el=>{
-				return [el.nodeName, el.nodeValue];
+				return [el.nodeName, this.patchAttribute(el.nodeName, el.nodeValue)];
 			}).filter(([attrName])=>{
 				if (result.isSVG) {
 					return true;
@@ -630,7 +641,6 @@ class DomSnapshot {
 		return `${keyIndex}/${keyValue}`;
 	}
 	getState() {
-		this.meta = this.collectMeta();
 		return {
 			meta: this.cloneObject(this.meta),
 			items: this.getArrayCopy(this.items),

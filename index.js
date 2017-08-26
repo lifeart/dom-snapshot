@@ -86,6 +86,18 @@ class DomSnapshot {
 		};
 		this.intFirebase(this.fbConfig);
 	}
+	collectMeta() {
+		return {
+			userAgent: navigator.userAgent,
+			hostname: window.location.hostname,
+			url: window.location.href,
+			screenWidth: window.screen.width,
+			screenHeight: window.screen.height,
+			screenAvailWidth: window.screen.availWidth,
+			screenAvailHeight: window.screen.availHeight,
+			timestamp: Date.now()
+		};
+	}
 	isSVG(element) {
 		// https://www.w3.org/TR/SVG/propidx.html
 		const isSVGNode = element.nodeName.toLowerCase() === 'svg';
@@ -618,6 +630,7 @@ class DomSnapshot {
 		return `${keyIndex}/${keyValue}`;
 	}
 	getState() {
+		this.meta = this.collectMeta();
 		return {
 			meta: this.cloneObject(this.meta),
 			items: this.getArrayCopy(this.items),

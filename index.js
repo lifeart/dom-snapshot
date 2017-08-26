@@ -10,8 +10,11 @@ class DomSnapshot {
 		this.BODY_ATTRIBUTES = config.state.CACHE_VALUES || [];
 		this.HTML_STYLE = config.state.HTML_STYLE || [];
 		this.NODE_NAMES_TO_IGNORE = [
-			'IFRAME', 'NOSCRIPT', 'SCRIPT', 'STYLE', '#comment', '#document'
+			'NOSCRIPT', 'SCRIPT', 'STYLE', '#comment', '#document'
 		];
+		this.NODE_NAMES_TO_REPLACE = {
+			'IFRAME': 'DIV'
+		};
 		this.PSEUDOSELECTORS = [
 			':after', ':before', ':first-line', ':first-letter', ':selection'
 		];
@@ -83,6 +86,22 @@ class DomSnapshot {
 		};
 		this.intFirebase(this.fbConfig);
 	}
+	isSVG(element) {
+		// https://www.w3.org/TR/SVG/propidx.html
+		const isSVGNode = element.nodeName.toLowerCase() === 'svg';
+		if (isSVGNode) {
+			element.dataset.svg = true;
+			return true;
+		}
+		if (!element.parentNode || !element.parentNode.dataset) {
+			return false;
+		}
+		const svgResult = element.parentNode.dataset.svg;
+		if (svgResult && element.dataset) {
+			element.dataset.svg = true;
+		}
+		return svgResult;
+	}
 	getBodyAttributes() {
 		return Array.prototype.map.call(this.getBodyNode().attributes, el=>{
 			return [el.nodeName, el.nodeValue];
@@ -104,6 +123,10 @@ class DomSnapshot {
 		// get optimal style, save as special node
 	}
 	shouldTakeElement(node, nodeStyle) {
+
+		if (this.isSVG(node)) {
+			return true;
+		}
 
 		if (this.NODE_NAMES_TO_IGNORE.includes(node.nodeName)) {
 			return false;
@@ -435,7 +458,7 @@ class DomSnapshot {
 					return this.items[i].style;
 				}
 			}
-			return this.items[index].style || []
+			return [];
 		}
 	}
 	styleObjectToOptimalStyleArray(styleObject, parentIndex) {
@@ -478,19 +501,28 @@ class DomSnapshot {
 			styles: []
 		};
 		const style = this.createStyleObject(styleNode);
-		result.nodeName = node.nodeName;
+		result.nodeName = this.NODE_NAMES_TO_REPLACE[node.nodeName] || node.nodeName;
 		result.index = index;
 		result.nodeType = node.nodeType;
 		result.parent = node.parentNode?node.parentNode.dataset.index:0;
-		result.styles = this.styleObjectToOptimalStyleArray(style, result.parent);
+
 		if (result.parent === undefined) {
 			result.parent = 0;
+		}
+		result.isSVG = this.isSVG(node);
+		if (result.isSVG && result.nodeName !== 'svg') {
+			result.styles = [];
+		} else {
+			result.styles = this.styleObjectToOptimalStyleArray(style, result.parent);
 		}
 		result.textContent = node.children ? "" : node.data;
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
 			result.attributes = Array.prototype.map.call(node.attributes, el=>{
 				return [el.nodeName, el.nodeValue];
 			}).filter(([attrName])=>{
+				if (result.isSVG) {
+					return true;
+				}
 				return attrName !== 'style';
 			});
 		}
@@ -523,6 +555,8 @@ class DomSnapshot {
 
 		if (this.restrictedNodeTypes.includes(params.nodeType)) {
 			node = document.createTextNode(params.textContent);
+		} else if (params.isSVG) {
+			node = document.createElementNS("http://www.w3.org/2000/svg", params.nodeName);
 		} else {
 			node = document.createElement(params.nodeName);
 			node.textContent = params.textContent;

@@ -4,21 +4,34 @@ class DomSnapshot {
 		if (!config.state) {
 			config.state = {};
 		}
+		// init state
 		this.BODY_STYLE = config.state.BODY_STYLE || [];
 		this.CACHE_KEYS  = config.state.CACHE_KEYS || [];
 		this.CACHE_VALUES = config.state.CACHE_VALUES || [];
 		this.BODY_ATTRIBUTES = config.state.CACHE_VALUES || [];
 		this.HTML_STYLE = config.state.HTML_STYLE || [];
+		this.items  = config.state.items || [];
+		this.meta = config.state.meta || {};
+		
+		// node cache (for node creation)
 		this.nodeCache = {};
+		// roots init
+		this._html = false;
+		this._head = false;
+		this._body = false;
+		// this nodes not going to snapshot
 		this.NODE_NAMES_TO_IGNORE = [
 			'NOSCRIPT', 'SCRIPT', 'STYLE', '#comment', '#document'
 		];
+		// iframes nodes will be replaced to div's
 		this.NODE_NAMES_TO_REPLACE = {
 			'IFRAME': 'DIV'
 		};
+		// pseudoselectors to capture
 		this.PSEUDOSELECTORS = [
 			':after', ':before', ':first-line', ':first-letter', ':selection'
 		];
+		// inherit styles (based on css 2.1);
 		this.INHERIT = [
 			'azimuth', 'border-collapse', 'border-spacing', 'caption-side',
 			'color', 'cursor', 'direction', 'elevation', 'empty-cells',
@@ -29,6 +42,7 @@ class DomSnapshot {
 			'speech-rate', 'stress', 'text-align', 'text-indent', 'text-transform',
 			'visibility', 'voice-family', 'volume', 'white-space', 'widows', 'word-spacing'
 		];
+		// styles to skip from capturing
 		this.SKIP_STYLES = {
 			"align-items": "normal",
 			"align-self": "normal",
@@ -72,11 +86,12 @@ class DomSnapshot {
 			"z-index": "auto",
 		};
 
-		this.items  = config.state.items || [];
-		this.meta = config.state.meta || {};
 		this.isLoaded = false;
+		// skip this node types
 		this.restrictedNodeTypes = [3,8];
+		// skip hidden nodes
 		this.skipDisplayNone = true;
+		// firebase config with defaults
 		this.fbConfig = fbConfig || {
 			apiKey: "AIzaSyA84vag_S0QSO7j1Eff4vZJEjdLc6wPx0M",
 			authDomain: "dom-snapshot.firebaseapp.com",
@@ -86,6 +101,21 @@ class DomSnapshot {
 			messagingSenderId: "578009354171"
 		};
 		this.intFirebase(this.fbConfig);
+	}
+	resetTarget() {
+		this.setBodyNode(false);
+		this.setHtmlNode(false);
+		this.setHeadNode(false);
+	}
+	/// set rootNode for capturing
+	setTarget(node) {
+		this.setBodyNode(node);
+		this.setHtmlNode(node.parentNode);
+		this.setHeadNode(node.parentNode);
+	}
+	/// set rootNode for restoring
+	restoreTo(node) {
+		this.setBodyNode(node);
 	}
 	collectMeta() {
 		return {
@@ -139,7 +169,7 @@ class DomSnapshot {
 	}
 	getBodyParentStyle() {
 		const body = this.getBodyNode();
-		let styleNode = {};
+		let styleNode = [];
 		if (body.parentNode) {
 			styleNode = this.getStyleForNode(body.parentNode);
 		}
@@ -230,12 +260,32 @@ class DomSnapshot {
 	loaded() {
 		return this._loaded;
 	}
+	setHeadNode(node) {
+		this._head = node;
+	}
+	getHead() {
+		return this._head || this.getBodyNode().parentNode.querySelector('head') || document.head || document.getElementsByTagName('head')[0];
+	}
+	cleanHeadNodeFromStyles() {
+		const head = this.getHead();
+		let stylesToRemove = head.getElementsByTagName('style');
+		if (stylesToRemove.length) {
+			for (let i = 0 ; i < stylesToRemove.length; i++) {
+				head.removeChild(stylesToRemove[i]);
+			}
+		}
+		let styleLinksToRemove = head.querySelectorAll('link[rel="stylesheet"]');
+		if (styleLinksToRemove.length) {
+			for (let i = 0 ; i < styleLinksToRemove.length; i++) {
+				head.removeChild(styleLinksToRemove[i]);
+			}
+		}
+	}
 	addStyleNode(css) {
-
-		const head = this.getBodyNode().parentNode.querySelector('head') || document.head || document.getElementsByTagName('head')[0];
 		const style = document.createElement('style');
-
+		const head = this.getHead();
 		style.type = 'text/css';
+		
 		if (style.styleSheet){
 			style.styleSheet.cssText = css;
 		} else {
@@ -243,29 +293,35 @@ class DomSnapshot {
 		}
 
 		head.appendChild(style);
-
 	}
 	createSnapshot() {
 		this.saveSnapshot();
 	}
 	saveSnapshot() {
 		const id = Date.now();
-
+		const database = this.firebase.database();
 		this.clearState();
 		this.copyWorld();
-		this.firebase.database().ref(`snapshots/${id}`).set(this.getState());
-		this.firebase.database().ref(`snapshots-list/${id}`).set({
-			visible: true
-		});
+		
+		database
+			.ref(`snapshots/${id}`)
+			.set(this.getState());
+		database
+			.ref(`snapshots-list/${id}`)
+			.set({
+				visible: true,
+				meta: this.meta
+			});
 		console.log(`snapshot ID is: ${id}`);
 		return id;
-
 	}
 	restoreSnapshot(id) {
 		return this.showSnapshot(id);
 	}
 	showSnapshot(id = '1502312089479') {
-		return this.firebase.database().ref('snapshots/' + id).once('value').then((snapshot) => {
+		return this.firebase.database().ref('snapshots/' + id)
+		.once('value')
+		.then((snapshot) => {
 			this.setState(snapshot.val());
 			this.destroyWorld();
 			this.restoreWorld();
@@ -305,30 +361,31 @@ class DomSnapshot {
 		return this.copyWorldTo(this.items);
 	}
 	copyWorldTo(items) {
-		var all = [];
+		const all = [];
+		const pseudoSelectorsStylesArray = [];
+		const reindexMap = {};
+		
 		this.meta = this.collectMeta();
 		this.BODY_ATTRIBUTES = this.getBodyAttributes();
 		this.HTML_STYLE = this.styleObjectToOptimalStyleArray(this.getHTMLStyle());
 		this.BODY_STYLE = this.styleObjectToOptimalStyleArray(this.getBodyStyle());
 		this.walker(this.getBodyNode(), all);
 
-		const pseudoSelectorsStylesArray = [];
-		const reindexMap = {};
-
 		for (let i = 0; i < all.length; i++) {
-			if (all[i].dataset) {
-				all[i].dataset.index = i;
+			let item = all[i];
+			if (item.dataset) {
+				item.dataset.index = i;
 			}
-			let nodeStyle = this.getStyleForNode(all[i]);
-			if (this.shouldTakeElement(all[i], nodeStyle)) {
-				if (all[i].dataset) {
-					let pseudoselecorStyles = this.getStylesForPseudoSelectors(all[i]);
+			let nodeStyle = this.getStyleForNode(item);
+			if (this.shouldTakeElement(item, nodeStyle)) {
+				if (item.dataset) {
+					let pseudoselecorStyles = this.getStylesForPseudoSelectors(item);
 					if (pseudoselecorStyles) {
 						pseudoselecorStyles.index = i;
 						pseudoSelectorsStylesArray.push(pseudoselecorStyles);
 					}
 				}
-				items.push(this.formatStyle(nodeStyle,all[i], i));
+				items.push(this.formatStyle(nodeStyle,item, i));
 				reindexMap[i] = items.length - 1;
 			}
 		}
@@ -347,10 +404,16 @@ class DomSnapshot {
 		});
 		return this;
 	}
+	setHtmlNode(node) {
+		this._html = node;
+	}
+	getHtmlNode() {
+		return this._html || this.getBodyNode().parentNode || this.getBodyNode();
+	}
 	setHTMLStyle() {
-		const body = this.getBodyNode();
-		if (body.parentNode) {
-			this.setNodeStyleFromStyleArray(this.HTML_STYLE, body.parentNode);
+		const node = this.getHtmlNode();
+		if (node) {
+			this.setNodeStyleFromStyleArray(this.HTML_STYLE, node);
 		}
 		return this;
 	}
@@ -378,11 +441,11 @@ class DomSnapshot {
 			this.insertNode(this.createNode(el, stylesToUppend),el, fragment);
 		})
 
-		this.getBodyNode().appendChild(fragment);
-
 		stylesToUppend.push(`html { ${this.getNodeStyleText(this.HTML_STYLE)} }`);
 		stylesToUppend.push(`body { ${this.getNodeStyleText(this.BODY_STYLE)} }`);
+		this.cleanHeadNodeFromStyles();
 		this.addStyleNode(stylesToUppend.reverse().join("\n"));
+		this.getBodyNode().appendChild(fragment);
 		return this;
 	}
 	setBodyAttributes() {
@@ -434,9 +497,9 @@ class DomSnapshot {
 			pseudoselecor = null;
 		}
 		if (this.restrictedNodeTypes.includes(element.nodeType)) {
-			return {};
+			return [];
 		}
-		let style = {};
+		let style = [];
 		try {
 			style = window.getComputedStyle(element, pseudoselecor);
 		} catch (e) {
@@ -444,8 +507,11 @@ class DomSnapshot {
 		}
 		return style;
 	}
+	setBodyNode(node) {
+		this._body = node;
+	}
 	getBodyNode() {
-		return window.document.body;
+		return this._body || window.document.body;
 	}
 	createStyleObject(styleNode) {
 		const styleObject = {};
@@ -497,7 +563,6 @@ class DomSnapshot {
 		if (this.notUndef(parentIndex)) {
 			parentStyle = this.getParentStyleByIndex(parentIndex);
 		}
-
 		const styles = [];
 		this._forEach(Object.keys(styleObject), el=>{
 			let styleKey = this.getOptimalValue(el,styleObject[el]);

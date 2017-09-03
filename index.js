@@ -333,7 +333,7 @@ class DomSnapshot {
 			}
 		}
 
-		pseudoSelectorsStylesArray.forEach(el=>{
+		this._forEach(pseudoSelectorsStylesArray,(el)=>{
 			let item = items[reindexMap[el.index]];
 			item.pseudoselectors = el;
 		});
@@ -342,7 +342,7 @@ class DomSnapshot {
 		this.cleanupStyles();
 	}
 	setStyleFromObject(node, styleObject) {
-		Object.keys(styleObject).forEach((key) => {
+		this._forEach(Object.keys(styleObject),(key) => {
 			node.style[key] = styleObject[key];
 		});
 		return this;
@@ -364,13 +364,20 @@ class DomSnapshot {
 		//this.setBodyStyle();
 		return this.restoreWorldFrom(this.items);
 	}
+	_forEach(array, action) {
+		const length = array.length;
+		for (let i = 0 ; i < length; i++) {
+			action(array[i]);
+		}
+	}
 	restoreWorldFrom(items) {
 		const stylesToUppend = [];
 		const fragment = document.createDocumentFragment();
 
-		items.forEach(el=>{
+		this._forEach(items,(el)=>{
 			this.insertNode(this.createNode(el, stylesToUppend),el, fragment);
-		});
+		})
+
 		this.getBodyNode().appendChild(fragment);
 
 		stylesToUppend.push(`html { ${this.getNodeStyleText(this.HTML_STYLE)} }`);
@@ -381,15 +388,15 @@ class DomSnapshot {
 	setBodyAttributes() {
 		const attributes = this.BODY_ATTRIBUTES;
 		const body = this.getBodyNode();
-		attributes.forEach(([name, value]) => {
+		this._forEach(attributes,([name, value]) => {
 			body.setAttribute(name, value);
-		});
+		})
 		return this;
 	}
 	destroyBodyAttributes() {
 		const attributes = this.getBodyAttributes();
 		const body = this.getBodyNode();
-		attributes.forEach(([name]) => {
+		this._forEach(attributes,([name]) => {
 			body.removeAttribute(name);
 		});
 		return this;
@@ -462,7 +469,7 @@ class DomSnapshot {
 		const items = this.items;
 		const itemsToRemove = [];
 		const lastItemIndex = items.length - 1;
-		items.forEach((item,index)=>{
+		this._forEach(items, (item,index)=>{
 			if (lastItemIndex !== index) {
 				let nextNode = items[index+1];
 				if (nextNode.parent === item.parent && nextNode.nodeName === item.nodeName && item.nodeName === '#text') {
@@ -492,7 +499,7 @@ class DomSnapshot {
 		}
 
 		const styles = [];
-		Object.keys(styleObject).forEach(el=>{
+		this._forEach(Object.keys(styleObject), el=>{
 			let styleKey = this.getOptimalValue(el,styleObject[el]);
 			if (styleKey && !(this.INHERIT.includes(el) && parentStyle.includes(styleKey))) {
 				styles.push(styleKey);
@@ -503,17 +510,16 @@ class DomSnapshot {
 	cleanupStyles() {
 		const stylesToRemove  = [];
 		const styledItems = this.items.filter(e=>e.styles.length);
-		this.HTML_STYLE.forEach(style=>{
+		this._forEach(this.HTML_STYLE, (style)=>{
 			if (styledItems.every((el)=>el.styles.includes(style))) {
 				if (this.BODY_STYLE.includes(style)) {
 					stylesToRemove.push(style);
 				}
 			}
 		});
-
 		this.HTML_STYLE = this.HTML_STYLE.filter(el=>!stylesToRemove.includes(el));
 		this.BODY_STYLE = this.BODY_STYLE.filter(el=>!stylesToRemove.includes(el));
-		this.items.forEach(item=>{
+		this._forEach(this.items,item=>{
 			if (item.styles.length) {
 				item.styles = item.styles.filter(el=>!stylesToRemove.includes(el));
 			}
@@ -561,14 +567,14 @@ class DomSnapshot {
 	}
 	getNodeStyleText(styles) {
 		const style = [];
-		styles.forEach((key)=>{
+		this._forEach(styles,(key)=>{
 			const [name, value] = this.getFromOptimalValue(key);
 			style.push(`${name}:${value}`);
 		});
 		return style.join(';');
 	}
 	setNodeStyleFromStyleArray(styles, node) {
-		styles.forEach((key)=>{
+		this._forEach(styles,(key)=>{
 			const [name, value] = this.getFromOptimalValue(key);
 			node.style[name] = value;
 		});
@@ -594,7 +600,7 @@ class DomSnapshot {
 			}
 		}
 
-		params.attributes&&params.attributes.forEach(([name,value])=>{
+		params.attributes&&this._forEach(params.attributes,([name,value])=>{
 			try {
 				if (name && name !== '"') {
 					node.setAttribute(name,value);

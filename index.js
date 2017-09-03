@@ -536,9 +536,11 @@ class DomSnapshot {
 		const itemsToRemove = [];
 		const lastItemIndex = items.length - 1;
 		this._forEach(items, (item,index)=>{
-			if (lastItemIndex !== index) {
+			if (lastItemIndex !== index && item.nodeName === '#text') {
 				let nextNode = items[index+1];
-				if (nextNode.parent === item.parent && nextNode.nodeName === item.nodeName && item.nodeName === '#text') {
+				let hasSameParent = nextNode.parent === item.parent;
+				let hasSameNodeName = nextNode.nodeName === item.nodeName;
+				if (hasSameParent && hasSameNodeName) {
 					nextNode.textContent = `${item.textContent}${nextNode.textContent}`;
 					itemsToRemove.push(index);
 				}

@@ -494,7 +494,7 @@ class DomSnapshot {
 	}
 	styleObjectToOptimalStyleArray(styleObject, parentIndex) {
 		let parentStyle = [];
-		if (parentIndex !== undefined) {
+		if (this.notUndef(parentIndex)) {
 			parentStyle = this.getParentStyleByIndex(parentIndex);
 		}
 
@@ -520,7 +520,7 @@ class DomSnapshot {
 		this.HTML_STYLE = this.HTML_STYLE.filter(el=>!stylesToRemove.includes(el));
 		this.BODY_STYLE = this.BODY_STYLE.filter(el=>!stylesToRemove.includes(el));
 		this._forEach(this.items,item=>{
-			if (item.styles.length) {
+			if (this.notEmpty(item.styles)) {
 				item.styles = item.styles.filter(el=>!stylesToRemove.includes(el));
 			}
 		});
@@ -536,7 +536,7 @@ class DomSnapshot {
 		result.nodeType = node.nodeType;
 		result.parent = node.parentNode?node.parentNode.dataset.index:0;
 
-		if (result.parent === undefined) {
+		if (!this.notUndef(result.parent)) {
 			result.parent = 0;
 		}
 		result.isSVG = this.isSVG(node);
@@ -582,6 +582,13 @@ class DomSnapshot {
 	getNodeFromCache(tag) {
 		return this.nodeCache[tag].cloneNode(false);
 	}
+	notUndef(el) {
+		let undef;
+		return el !== undef;
+	}
+	notEmpty(arr) {
+		return arr && arr.length;
+	}
 	createNode(params, styles) {
 
 		let node = null;
@@ -600,18 +607,21 @@ class DomSnapshot {
 			}
 		}
 
-		params.attributes&&this._forEach(params.attributes,([name,value])=>{
+		if (this.notEmpty(params.attributes)) {
 			try {
-				if (name && name !== '"') {
-					node.setAttribute(name,value);
-				}
+				this._forEach(params.attributes,([name,value])=>{
+					if (name && name !== '"') {
+						node.setAttribute(name,value);
+					}
+				});
 			} catch (e) {
 				console.log(e, node, name, value);
 			}
-		});
+		}
+
 
 		// addStyleNode
-		if (params.styles && params.styles.length) {
+		if (this.notEmpty(params.styles)) {
 			//this.setNodeStyleFromStyleArray(params.styles, node);
 			styles.push(`[data-index="${params.index}"] { ${this.getNodeStyleText(params.styles)} }`);
 			if (params.pseudoselectors) {

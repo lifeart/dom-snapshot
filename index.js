@@ -9,6 +9,7 @@ class DomSnapshot {
 		this.CACHE_VALUES = config.state.CACHE_VALUES || [];
 		this.BODY_ATTRIBUTES = config.state.CACHE_VALUES || [];
 		this.HTML_STYLE = config.state.HTML_STYLE || [];
+		this.nodeCache = {};
 		this.NODE_NAMES_TO_IGNORE = [
 			'NOSCRIPT', 'SCRIPT', 'STYLE', '#comment', '#document'
 		];
@@ -572,6 +573,9 @@ class DomSnapshot {
 			node.style[name] = value;
 		});
 	}
+	getNodeFromCache(tag) {
+		return this.nodeCache[tag].cloneNode(false);
+	}
 	createNode(params, styles) {
 
 		let node = null;
@@ -581,8 +585,13 @@ class DomSnapshot {
 		} else if (params.isSVG) {
 			node = document.createElementNS("http://www.w3.org/2000/svg", params.nodeName);
 		} else {
-			node = document.createElement(params.nodeName);
-			node.textContent = params.textContent;
+			if (!this.nodeCache[params.nodeName]) {
+				this.nodeCache[params.nodeName] = document.createElement(params.nodeName);
+			}
+			node = this.getNodeFromCache(params.nodeName);
+			if (typeof params.textContent === 'string' && params.textContent.length) {
+				node.textContent = params.textContent;
+			}
 		}
 
 		params.attributes&&params.attributes.forEach(([name,value])=>{

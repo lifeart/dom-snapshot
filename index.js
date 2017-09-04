@@ -334,7 +334,7 @@ class DomSnapshot {
 	_forEach(array, action) {
 		const length = array.length;
 		for (let i = 0 ; i < length; i++) {
-			action(array[i]);
+			action(array[i],i);
 		}
 	}
 	restoreWorldFrom(items) {

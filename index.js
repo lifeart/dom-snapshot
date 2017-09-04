@@ -126,7 +126,12 @@ class DomSnapshot {
 	}
 	patchAttribute(name, value) {
 		if (['src','href'].includes(name)) {
-			if (['/','#'].includes(String(value).charAt(0))) {
+			const firstChar = String(value).charAt(0);
+			const secondChar = String(value).charAt(1);
+			const hasHash = secondChar === '#' || firstChar === '#';
+			const hasTwoSlashes = firstChar == secondChar && firstChar = '/';
+			const hasPath = secondChar === '/';
+			if (!hasTwoSlashes && (hasPath||hasHash)) {
 				if (this.meta.hostname && this.meta.protocol) {
 					return `${this.meta.protocol}//${this.meta.hostname}${value}`;
 				}

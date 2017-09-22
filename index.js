@@ -12,7 +12,7 @@ class DomSnapshot {
 		this.HTML_STYLE = config.state.HTML_STYLE || [];
 		this.items  = config.state.items || [];
 		this.meta = config.state.meta || {};
-		
+
 		// node cache (for node creation)
 		this.nodeCache = {};
 		// roots init
@@ -129,7 +129,7 @@ class DomSnapshot {
 			const firstChar = String(value).charAt(0);
 			const secondChar = String(value).charAt(1);
 			const hasHash = secondChar === '#' || firstChar === '#';
-			const hasTwoSlashes = firstChar == secondChar && firstChar = '/';
+			const hasTwoSlashes = (firstChar === secondChar && firstChar === '/');
 			const hasPath = secondChar === '/';
 			if (!hasTwoSlashes && (hasPath||hasHash)) {
 				if (this.meta.hostname && this.meta.protocol) {
@@ -241,7 +241,7 @@ class DomSnapshot {
 		const style = document.createElement('style');
 		const head = this.getHead();
 		style.type = 'text/css';
-		
+
 		if (style.styleSheet){
 			style.styleSheet.cssText = css;
 		} else {
@@ -293,7 +293,7 @@ class DomSnapshot {
 		const all = [];
 		const pseudoSelectorsStylesArray = [];
 		const reindexMap = {};
-		
+
 		this.meta = this.collectMeta();
 		this.BODY_ATTRIBUTES = this.getBodyAttributes();
 		this.HTML_STYLE = this.styleObjectToOptimalStyleArray(this.getHTMLStyle());
@@ -465,7 +465,7 @@ class DomSnapshot {
 		const database = this.firebase.database();
 		this.clearState();
 		this.copyWorld();
-		
+
 		database
 			.ref(`snapshots/${id}`)
 			.set(this.getState());

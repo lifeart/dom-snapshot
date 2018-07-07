@@ -1,0 +1,27 @@
+{
+  "name": "dom-snapshot",
+  "version": "1.0.0",
+  "description": "Take your dom tree picture",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lifeart/dom-snapshot.git"
+  },
+  "keywords": [
+    "dom",
+    "snapshot",
+    "testing"
+  ],
+  "author": "Aleksandr Kanunnikov <lifeart92@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lifeart/dom-snapshot/issues"
+  },
+  "homepage": "https://github.com/lifeart/dom-snapshot#readme",
+  "devDependencies": {
+    "eslint": "^5.0.1"
+  }
+}

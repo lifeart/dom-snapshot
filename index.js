@@ -1,3 +1,6 @@
+/*eslint no-unused-vars: ["error", { "argsIgnorePattern": "DomSnapshot" }]*/
+/* global firebase, AUTOSTART */
+
 class DomSnapshot {
 
 	/*
@@ -69,46 +72,46 @@ class DomSnapshot {
 		];
 		// styles to skip from capturing
 		this.SKIP_STYLES = {
-			"align-items": "normal",
-			"align-self": "normal",
-			"clip-path": "none",
-			"flex-basis": "auto",
-			"flex-grow": "0",
-			"flex-shrink": "1",
-			"justify-content": "normal",
-			"user-select": "text",
-			"border-bottom-left-radius": "0px",
-			"border-bottom-right-radius": "0px",
-			"border-top-right-radius": "0px",
-			"border-top-left-radius": "0px",
-			"cursor": "auto",
-			"background-position": "0% 0%",
-			"background-size": "auto",
-			"direction": "ltr",
+			'align-items': 'normal',
+			'align-self': 'normal',
+			'clip-path': 'none',
+			'flex-basis': 'auto',
+			'flex-grow': '0',
+			'flex-shrink': '1',
+			'justify-content': 'normal',
+			'user-select': 'text',
+			'border-bottom-left-radius': '0px',
+			'border-bottom-right-radius': '0px',
+			'border-top-right-radius': '0px',
+			'border-top-left-radius': '0px',
+			'cursor': 'auto',
+			'background-position': '0% 0%',
+			'background-size': 'auto',
+			'direction': 'ltr',
 			// "margin-bottom": "0px",
 			// "margin-left": "0px",
 			// "margin-right": "0px",
 			// "margin-top": "0px",
-			"max-height": "none",
-			"max-width": "none",
-			"opacity": "1",
+			'max-height': 'none',
+			'max-width': 'none',
+			'opacity': '1',
 			// "padding-bottom": "0px",
 			// "padding-left": "0px",
 			// "padding-right": "0px",
 			// "padding-top": "0px",
-			"right": "auto",
-			"speak": "normal",
-			"top": "auto",
-			"transition-delay": "0s",
-			"transition-duration": "0s",
-			"transition-property": "all",
-			"transition-timing-function": "ease",
-			"vertical-align": "baseline",
-			"visibility": "visible",
-			"white-space": "normal",
-			"widows": "2",
-			"word-break": "normal",
-			"z-index": "auto",
+			'right': 'auto',
+			'speak': 'normal',
+			'top': 'auto',
+			'transition-delay': '0s',
+			'transition-duration': '0s',
+			'transition-property': 'all',
+			'transition-timing-function': 'ease',
+			'vertical-align': 'baseline',
+			'visibility': 'visible',
+			'white-space': 'normal',
+			'widows': '2',
+			'word-break': 'normal',
+			'z-index': 'auto',
 		};
 
 		this.isLoaded = false;
@@ -118,12 +121,12 @@ class DomSnapshot {
 		this.skipDisplayNone = true;
 		// firebase config with defaults
 		this.fbConfig = fbConfig || {
-			apiKey: "AIzaSyA84vag_S0QSO7j1Eff4vZJEjdLc6wPx0M",
-			authDomain: "dom-snapshot.firebaseapp.com",
-			databaseURL: "https://dom-snapshot.firebaseio.com",
-			projectId: "dom-snapshot",
-			storageBucket: "dom-snapshot.appspot.com",
-			messagingSenderId: "578009354171"
+			apiKey: 'AIzaSyA84vag_S0QSO7j1Eff4vZJEjdLc6wPx0M',
+			authDomain: 'dom-snapshot.firebaseapp.com',
+			databaseURL: 'https://dom-snapshot.firebaseio.com',
+			projectId: 'dom-snapshot',
+			storageBucket: 'dom-snapshot.appspot.com',
+			messagingSenderId: '578009354171'
 		};
 		this.intFirebase(this.fbConfig);
 	}
@@ -208,7 +211,7 @@ class DomSnapshot {
 		}
 		return this;
 	}
-	getMeta(meta) {
+	getMeta() {
 		return Object.assign({}, this.meta);
 	}
 	clearMeta() {
@@ -342,7 +345,6 @@ class DomSnapshot {
 		return this._copyWorldTo(rootNode, this.items);
 	}
 	_copyWorldTo(rootNode, items) {
-		const all = [];
 		const pseudoSelectorsStylesArray = [];
 		const reindexMap = {};
 
@@ -418,12 +420,12 @@ class DomSnapshot {
 
 		this._forEach(items, (el) => {
 			this._insertNode(this._createNode(el, stylesToUppend), el, fragment);
-		})
+		});
 
 		stylesToUppend.push(`html { ${this._getNodeStyleText(source.HTML_STYLE)} }`);
 		stylesToUppend.push(`body { ${this._getNodeStyleText(source.BODY_STYLE)} }`);
 		
-		this._addStyleNode(stylesToUppend.reverse().join("\n"));
+		this._addStyleNode(stylesToUppend.reverse().join('\n'));
 		(target || this._getBodyNode()).appendChild(fragment);
 		return this;
 	}
@@ -452,7 +454,7 @@ class DomSnapshot {
 		}
 		return styleObject;
 	}
-	_isDefaultStyle(name, value) {
+	_isDefaultStyle(/*name, value*/) {
 		return false;
 		// return this.BODY_STYLE[name] === value || false;
 	}
@@ -504,7 +506,7 @@ class DomSnapshot {
 		return parent;
 	}
 	_getNodeTextContent(node) {
-		return node.children ? "" : node.data;
+		return node.children ? '' : node.data;
 	}
 	getSnapshotsDiff(s1, s2) {
 		let firstState = this.setState({}, s1);
@@ -536,7 +538,7 @@ class DomSnapshot {
 				firstState: firstStyles[index],
 				secondState: secondStyles[index],
 				diff: diff
-			}
+			};
 		});
 	}
 	_formatStyle(styleNode, node, index) {
@@ -601,7 +603,7 @@ class DomSnapshot {
 		const body = this._getBodyNode();
 		this._forEach(attributes, ([name, value]) => {
 			body.setAttribute(name, value);
-		})
+		});
 		return this;
 	}
 	setBodyNode(node) {
@@ -717,7 +719,7 @@ class DomSnapshot {
 		return arr && arr.length;
 	}
 	_hasTextContent(node = { textContent: '' }) {
-		return typeof params.textContent === 'string' && params.textContent.length;
+		return typeof node.textContent === 'string' && node.textContent.length;
 	}
 	_hasNodeInCache(nodeName) {
 		return (nodeName in this.nodeCache);
@@ -729,11 +731,11 @@ class DomSnapshot {
 		return this._getDocument().createTextNode(textContent);
 	}
 	_getSVGNode(nodeName) {
-		return this._getDocument().createElementNS("http://www.w3.org/2000/svg", nodeName);
+		return this._getDocument().createElementNS('http://www.w3.org/2000/svg', nodeName);
 	}
 	_addTextContent(node, params) {
 		if (this._hasTextContent(params)) {
-			node.textContent = textContent;
+			node.textContent = params.textContent;
 		}
 	}
 	_createNode(params = {
@@ -764,7 +766,7 @@ class DomSnapshot {
 					}
 				});
 			} catch (e) {
-				console.log(e, node, name, value);
+				console.log(e, node, name);
 			}
 		}
 
@@ -887,7 +889,7 @@ class DomSnapshot {
 			CACHE_KEYS: this._getArrayCopy(this.CACHE_KEYS),
 			CACHE_VALUES: this._getArrayCopy(this.CACHE_VALUES),
 			BODY_ATTRIBUTES: this._getArrayCopy(this.BODY_ATTRIBUTES)
-		}
+		};
 	}
 	getParentStyleByIndex(index) {
 		if (typeof index !== 'number') {
@@ -901,4 +903,8 @@ class DomSnapshot {
 			return [];
 		}
 	}
+}
+
+if (typeof AUTOSTART === 'boolean' && AUTOSTART === true) {
+	DomSnapshot();
 }

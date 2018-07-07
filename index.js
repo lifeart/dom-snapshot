@@ -275,6 +275,14 @@ class DomSnapshot {
 
 		head.appendChild(style);
 	}
+	takeSnapshot(selector, name) {
+		return this.saveSnapshot(document.querySelector(selector), name);
+	}
+	showSnapshot(id, selector) {
+		return this.getSnapshotById(id).then((snapshot)=>{
+			this.restoreWorldFrom(document.querySelector(selector), this.setState({}, snapshot));
+		});
+	}
 	createSnapshot() {
 		return this.saveSnapshot();
 	}
@@ -303,11 +311,11 @@ class DomSnapshot {
 	getSnapshotById(id) {
 		return this._fbGetSnapshot(id);
 	}
-	_showSnapshot(id = '1502312089479') {
+	_showSnapshot(id = '1502312089479', rootElement) {
 		return this.getSnapshotById(id).then((snapshot)=>{
 			this.destroyWorld();
 			this.setState(this, snapshot);
-			this.restoreWorld();
+			this.restoreWorld(rootElement);
 		});
 	}
 	_clearState() {
@@ -395,7 +403,7 @@ class DomSnapshot {
 		}
 
 		let source  = this;
-		return this.restoreWorldFrom(this.items, target, source);
+		return this.restoreWorldFrom(target, source);
 	}
 	_forEach(array, action) {
 		const length = array.length;
@@ -403,7 +411,8 @@ class DomSnapshot {
 			action(array[i], i);
 		}
 	}
-	restoreWorldFrom(items, target = false, source) {
+	restoreWorldFrom(target = false, source) {
+		let items = source.items;
 		const stylesToUppend = [];
 		const fragment = this._getDocument().createDocumentFragment();
 
@@ -580,7 +589,7 @@ class DomSnapshot {
 		this.addMeta('Browser', window.navigator.name);
 
 		let state = this._getState();
-
+		console.log('state', state);
 		this._fbSetSnapshot(id, state);
 		this._fbAddToSnapshotList(id, { visible: true, meta: state.meta });
 		

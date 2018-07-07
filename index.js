@@ -835,6 +835,10 @@ class DomSnapshot {
 		return style;
 	}
 	_getBodyNode() {
+		//legacy hook
+		if ('getBodyNode' in this) {
+			return this.getBodyNode();
+		}
 		return this._body || window.document.body;
 	}
 	_getDocument() {

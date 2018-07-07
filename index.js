@@ -36,7 +36,7 @@ class DomSnapshot {
 		this.meta = config.state.meta || {};
 		this._USE_VACUUM = config.vacuum || false;
 		// append styles to dom node instead of style node
-		this._USE_INLINE_STYLES = config.inlineStyles || false;
+		this._USE_INLINE_STYLES = config.inlineStyles || true;
 		this._USE_STYLES_CLEANUP = config.stylesCleanup || true;
 		this._USE_PSEUDOSELECTORS = config.capturePseudoselectors || true;
 
@@ -281,9 +281,10 @@ class DomSnapshot {
 	takeSnapshot(selector, name) {
 		return this.saveSnapshot(document.querySelector(selector), name);
 	}
-	showSnapshot(id, selector) {
+	showSnapshot(id, selector = false) {
 		return this.getSnapshotById(id).then((snapshot)=>{
-			this.restoreWorldFrom(document.querySelector(selector), this.setState({}, snapshot));
+			this.destroyWorld();
+			this.restoreWorldFrom(document.querySelector(selector) || this._getBodyNode(), this.setState(this, snapshot));
 		});
 	}
 	createSnapshot() {

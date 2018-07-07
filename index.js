@@ -1,17 +1,38 @@
 class DomSnapshot {
 
-	constructor(config = {}, fbConfig = false) {
+	/*
+
+	*/
+	constructor(config = {
+		inlineStyles: false, // use inline styles on restore
+		vacuum: false, // use node-vacuum (squashing) 
+		state: {
+			BODY_STYLE: [],
+			CACHE_KEYS: [],
+			CACHE_VALUES: [],
+			HTML_STYLE: [],
+			items: [],
+			meta: {	// used to patch image links on snapshot restore (may be replaced to base64 inline)
+				protocol: '',
+				hostname: ''
+			}
+		}
+	}, fbConfig = false) {
 		if (!config.state) {
 			config.state = {};
 		}
 		// init state
 		this.BODY_STYLE = config.state.BODY_STYLE || [];
-		this.CACHE_KEYS  = config.state.CACHE_KEYS || [];
+		this.CACHE_KEYS = config.state.CACHE_KEYS || [];
 		this.CACHE_VALUES = config.state.CACHE_VALUES || [];
 		this.BODY_ATTRIBUTES = config.state.CACHE_VALUES || [];
 		this.HTML_STYLE = config.state.HTML_STYLE || [];
-		this.items  = config.state.items || [];
+		this.items = config.state.items || [];
 		this.meta = config.state.meta || {};
+		this._USE_VACUUM = config.vacuum || false;
+		// append styles to dom node instead of style node
+		this._USE_INLINE_STYLES = config.inlineStyles || false;
+
 
 		// node cache (for node creation)
 		this.nodeCache = {};
@@ -88,7 +109,7 @@ class DomSnapshot {
 
 		this.isLoaded = false;
 		// skip this node types
-		this.restrictedNodeTypes = [3,8];
+		this.restrictedNodeTypes = [3, 8];
 		// skip hidden nodes
 		this.skipDisplayNone = true;
 		// firebase config with defaults
@@ -111,7 +132,7 @@ class DomSnapshot {
 	restoreTo(node) {
 		this.setBodyNode(node);
 	}
-	collectMeta() {
+	_collectMeta() {
 		return {
 			userAgent: navigator.userAgent,
 			hostname: window.location.hostname,
@@ -124,14 +145,14 @@ class DomSnapshot {
 			timestamp: Date.now()
 		};
 	}
-	patchAttribute(name, value) {
-		if (['src','href'].includes(name)) {
+	_patchAttribute(name, value) {
+		if (['src', 'href'].includes(name)) {
 			const firstChar = String(value).charAt(0);
 			const secondChar = String(value).charAt(1);
 			const hasHash = secondChar === '#' || firstChar === '#';
 			const hasTwoSlashes = (firstChar === secondChar && firstChar === '/');
 			const hasPath = secondChar === '/';
-			if (!hasTwoSlashes && (hasPath||hasHash)) {
+			if (!hasTwoSlashes && (hasPath || hasHash)) {
 				if (this.meta.hostname && this.meta.protocol) {
 					return `${this.meta.protocol}//${this.meta.hostname}${value}`;
 				}
@@ -139,7 +160,7 @@ class DomSnapshot {
 		}
 		return value;
 	}
-	isSVG(element) {
+	_isSVG(element) {
 		// https://www.w3.org/TR/SVG/propidx.html
 		const isSVGNode = element.nodeName.toLowerCase() === 'svg';
 		if (isSVGNode) {
@@ -155,24 +176,24 @@ class DomSnapshot {
 		}
 		return svgResult || false;
 	}
-	getBodyAttributes() {
-		return Array.prototype.map.call(this.getBodyNode().attributes, el=>{
+	_getBodyAttributes() {
+		return Array.prototype.map.call(this._getBodyNode().attributes, el => {
 			return [el.nodeName, el.nodeValue];
 		});
 	}
-	getBodyStyle() {
-		return this.createStyleObject(this.getStyleForNode(this.getBodyNode()));
+	_getBodyStyle() {
+		return this._createStyleObject(this._getStyleForNode(this._getBodyNode()));
 	}
-	getHTMLStyle() {
-		return this.getBodyParentStyle();
+	_getHTMLStyle() {
+		return this._getBodyParentStyle();
 	}
-	getBodyParentStyle() {
-		const body = this.getBodyNode();
+	_getBodyParentStyle() {
+		const body = this._getBodyNode();
 		let styleNode = [];
 		if (body.parentNode) {
-			styleNode = this.getStyleForNode(body.parentNode);
+			styleNode = this._getStyleForNode(body.parentNode);
 		}
-		return this.createStyleObject(styleNode);
+		return this._createStyleObject(styleNode);
 		// get optimal style, save as special node
 	}
 	addMeta(keyOrObject, value) {
@@ -184,14 +205,14 @@ class DomSnapshot {
 		return this;
 	}
 	getMeta(meta) {
-		return Object.assign({},this.meta);
+		return Object.assign({}, this.meta);
 	}
 	clearMeta() {
 		this.meta = {};
 	}
-	addFbScript(resolve, reject, config) {
-		const head = document.getElementsByTagName('head')[0];
-		const script = document.createElement('script');
+	_addFbScript(resolve, reject, config) {
+		const head = this._getDocument().getElementsByTagName('head')[0];
+		const script = this._getDocument().createElement('script');
 		script.type = 'text/javascript';
 		script.onload = () => {
 			firebase.initializeApp(config);
@@ -206,67 +227,67 @@ class DomSnapshot {
 		head.appendChild(script);
 	}
 	intFirebase(fbConfig) {
-		this._loaded = new Promise((resolve,reject) => {
+		this._loaded = new Promise((resolve, reject) => {
 			if (typeof window.firebase !== 'undefined') {
 				this.firebase = firebase;
 				this.isLoaded = true;
 				return resolve(this);
 			}
-			this.addFbScript(resolve,reject,fbConfig);
+			this._addFbScript(resolve, reject, fbConfig);
 		});
 		return this._loaded;
 	}
 	loaded() {
 		return this._loaded;
 	}
-	getHead() {
-		return this._head || this.getBodyNode().parentNode.querySelector('head') || document.head || document.getElementsByTagName('head')[0];
+	_getHead() {
+		return this._head || this._getBodyNode().parentNode.querySelector('head') || this._getDocument().head || this._getDocument().getElementsByTagName('head')[0];
 	}
-	cleanHeadNodeFromStyles() {
-		const head = this.getHead();
+	_cleanHeadNodeFromStyles() {
+		const head = this._getHead();
 		let stylesToRemove = head.getElementsByTagName('style');
 		if (stylesToRemove.length) {
-			for (let i = 0 ; i < stylesToRemove.length; i++) {
+			for (let i = 0; i < stylesToRemove.length; i++) {
 				head.removeChild(stylesToRemove[i]);
 			}
 		}
 		let styleLinksToRemove = head.querySelectorAll('link[rel="stylesheet"]');
 		if (styleLinksToRemove.length) {
-			for (let i = 0 ; i < styleLinksToRemove.length; i++) {
+			for (let i = 0; i < styleLinksToRemove.length; i++) {
 				head.removeChild(styleLinksToRemove[i]);
 			}
 		}
 	}
-	addStyleNode(css) {
-		const style = document.createElement('style');
-		const head = this.getHead();
+	_addStyleNode(css, target = false) {
+		const style = this._getDocument().createElement('style');
+		const head = (target || this._getHead());
 		style.type = 'text/css';
 
-		if (style.styleSheet){
+		if (style.styleSheet) {
 			style.styleSheet.cssText = css;
 		} else {
-			style.appendChild(document.createTextNode(css));
+			style.appendChild(this._getDocument().createTextNode(css));
 		}
 
 		head.appendChild(style);
 	}
 	createSnapshot() {
-		this.saveSnapshot();
+		return this.saveSnapshot();
 	}
 	restoreSnapshot(id) {
-		return this.showSnapshot(id);
+		return this._showSnapshot(id);
 	}
-	showSnapshot(id = '1502312089479') {
+	_showSnapshot(id = '1502312089479') {
 		return this.firebase.database().ref('snapshots/' + id)
-		.once('value')
-		.then((snapshot) => {
-			this.setState(snapshot.val());
-			this.destroyWorld();
-			this.restoreWorld();
-			return snapshot.val();
-		});
+			.once('value')
+			.then((snapshot) => {
+				this.setState(snapshot.val());
+				this.destroyWorld();
+				this.restoreWorld();
+				return snapshot.val();
+			});
 	}
-	clearState() {
+	_clearState() {
 		this.items = [];
 		this.CACHE_KEYS = [];
 		this.BODY_STYLE = [];
@@ -286,91 +307,101 @@ class DomSnapshot {
 		}
 		return JSON.parse(JSON.stringify(obj));
 	}
-	copyWorld() {
-		return this.copyWorldTo(this.items);
+	_copyWorld(rootNode = false) {
+		return this._copyWorldTo(rootNode, this.items);
 	}
-	copyWorldTo(items) {
+	_copyWorldTo(rootNode, items) {
 		const all = [];
 		const pseudoSelectorsStylesArray = [];
 		const reindexMap = {};
 
-		this.meta = this.collectMeta();
-		this.BODY_ATTRIBUTES = this.getBodyAttributes();
-		this.HTML_STYLE = this.styleObjectToOptimalStyleArray(this.getHTMLStyle());
-		this.BODY_STYLE = this.styleObjectToOptimalStyleArray(this.getBodyStyle());
-		this.getAllDomNodes(this.getBodyNode(), all);
+		this.meta = this._collectMeta();
+		this.BODY_ATTRIBUTES = this._getBodyAttributes();
+		this.HTML_STYLE = this.styleObjectToOptimalStyleArray(this._getHTMLStyle());
+		this.BODY_STYLE = this.styleObjectToOptimalStyleArray(this._getBodyStyle());
+		this.getAllDomNodes(rootNode || this._getBodyNode(), all);
 
 		for (let i = 0; i < all.length; i++) {
 			let item = all[i];
 			if (item.dataset) {
 				item.dataset.index = i;
 			}
-			let nodeStyle = this.getStyleForNode(item);
+			let nodeStyle = this._getStyleForNode(item);
 			if (this.shouldTakeElement(item, nodeStyle)) {
 				if (item.dataset) {
-					let pseudoselecorStyles = this.getStylesForPseudoSelectors(item);
+					let pseudoselecorStyles = this._getStylesForPseudoSelectors(item);
 					if (pseudoselecorStyles) {
 						pseudoselecorStyles.index = i;
 						pseudoSelectorsStylesArray.push(pseudoselecorStyles);
 					}
 				}
-				items.push(this.formatStyle(nodeStyle,item, i));
+				items.push(this._formatStyle(nodeStyle, item, i));
 				reindexMap[i] = items.length - 1;
 			}
 		}
 
-		this._forEach(pseudoSelectorsStylesArray,(el)=>{
+		this._forEach(pseudoSelectorsStylesArray, (el) => {
 			let item = items[reindexMap[el.index]];
 			item.pseudoselectors = el;
 		});
 
-		this.vacuum();
-		this.cleanupStyles();
+		if (this._USE_VACUUM) {
+			this.items = this._vacuum(this.items);
+		}
+		this._cleanupStyles();
 	}
-	getHtmlNode() {
-		return this._html || this.getBodyNode().parentNode || this.getBodyNode();
+	_getHtmlNode() {
+		return this._html || this._getBodyNode().parentNode || this._getBodyNode();
 	}
-	restoreWorld() {
-		//this.setHTMLStyle();
-		this.setBodyAttributes();
-		//this.setBodyStyle();
-		return this.restoreWorldFrom(this.items);
+	restoreWorld(target = false) {
+		
+		if (!target) {
+			//this._setHTMLStyle();
+			this._setBodyAttributes();
+			//this._setBodyStyle();
+		}
+
+		return this.restoreWorldFrom(this.items, target);
 	}
 	_forEach(array, action) {
 		const length = array.length;
-		for (let i = 0 ; i < length; i++) {
-			action(array[i],i);
+		for (let i = 0; i < length; i++) {
+			action(array[i], i);
 		}
 	}
-	restoreWorldFrom(items) {
+	restoreWorldFrom(items, target = false) {
 		const stylesToUppend = [];
-		const fragment = document.createDocumentFragment();
+		const fragment = this._getDocument().createDocumentFragment();
 
-		this._forEach(items,(el)=>{
-			this.insertNode(this.createNode(el, stylesToUppend),el, fragment);
+		this._forEach(items, (el) => {
+			this._insertNode(this.createNode(el, stylesToUppend), el, fragment);
 		})
 
-		stylesToUppend.push(`html { ${this.getNodeStyleText(this.HTML_STYLE)} }`);
-		stylesToUppend.push(`body { ${this.getNodeStyleText(this.BODY_STYLE)} }`);
-		this.cleanHeadNodeFromStyles();
-		this.addStyleNode(stylesToUppend.reverse().join("\n"));
-		this.getBodyNode().appendChild(fragment);
+		stylesToUppend.push(`html { ${this._getNodeStyleText(this.HTML_STYLE)} }`);
+		stylesToUppend.push(`body { ${this._getNodeStyleText(this.BODY_STYLE)} }`);
+		this._cleanHeadNodeFromStyles();
+		this._addStyleNode(stylesToUppend.reverse().join("\n"));
+		(target || this._getBodyNode()).appendChild(fragment);
 		return this;
 	}
-	destroyBodyAttributes() {
-		const attributes = this.getBodyAttributes();
-		const body = this.getBodyNode();
-		this._forEach(attributes,([name]) => {
+	_destroyBodyAttributes() {
+		const attributes = this._getBodyAttributes();
+		const body = this._getBodyNode();
+		this._forEach(attributes, ([name]) => {
 			body.removeAttribute(name);
 		});
 		return this;
 	}
 	destroyWorld() {
-		this.destroyBodyAttributes();
-		this.getBodyNode().innerHTML = '';
+		this._destroyBodyAttributes();
+		this._getBodyNode().innerHTML = '';
+		let styles = this._getHead().querySelectorAll('style');
+		for (let i = 0; i < styles.length; i++) {
+			this._getHead().removeChild(styles[i]);
+		}
 		return this;
 	}
-	createStyleObject(styleNode) {
+	_createStyleObject(styleNode) {
 		const styleObject = {};
 		if (!styleNode.length) {
 			return styleObject;
@@ -381,17 +412,16 @@ class DomSnapshot {
 		}
 		return styleObject;
 	}
-	isDefault(name, value) {
+	_isDefaultStyle(name, value) {
 		return false;
-		return this.BODY_STYLE[name] === value || false;
+		// return this.BODY_STYLE[name] === value || false;
 	}
-	vacuum() {
-		const items = this.items;
+	_vacuum(items) {
 		const itemsToRemove = [];
 		const lastItemIndex = items.length - 1;
-		this._forEach(items, (item,index)=>{
+		this._forEach(items, (item, index) => {
 			if (lastItemIndex !== index && item.nodeName === '#text') {
-				let nextNode = items[index+1];
+				let nextNode = items[index + 1];
 				let hasSameParent = nextNode.parent === item.parent;
 				let hasSameNodeName = nextNode.nodeName === item.nodeName;
 				if (hasSameParent && hasSameNodeName) {
@@ -400,11 +430,12 @@ class DomSnapshot {
 				}
 			}
 		});
-		this.items = items.filter((el,index)=>!itemsToRemove.includes(index));
+		return items.filter((el, index) => !itemsToRemove.includes(index));
 	}
-	cleanupStyles() {
-		const stylesToRemove  = [];
+	_cleanupStyles() {
+		const stylesToRemove = [];
 		const styledItems = this.items.filter((e) => e.styles.length);
+		// collect browser default styles
 		this._forEach(this.HTML_STYLE, (style) => {
 			if (styledItems.every((el) => el.styles.includes(style))) {
 				if (this.BODY_STYLE.includes(style)) {
@@ -412,39 +443,51 @@ class DomSnapshot {
 				}
 			}
 		});
+		// exclude collected stules
 		this.HTML_STYLE = this.HTML_STYLE.filter((el) => !stylesToRemove.includes(el));
 		this.BODY_STYLE = this.BODY_STYLE.filter((el) => !stylesToRemove.includes(el));
 		this._forEach(this.items, (item) => {
-			if (this.notEmpty(item.styles)) {
+			if (this._isNotEmptyArray(item.styles)) {
 				item.styles = item.styles.filter((el) => !stylesToRemove.includes(el));
 			}
 		});
-		this.BODY_STYLE = this.BODY_STYLE.filter(el=>!stylesToRemove.includes(el));
+		this.BODY_STYLE = this.BODY_STYLE.filter(el => !stylesToRemove.includes(el));
 	}
-	formatStyle(styleNode, node, index) {
-		var result = {
-			styles: []
-		};
-		const style = this.createStyleObject(styleNode);
-		result.nodeName = this.NODE_NAMES_TO_REPLACE[node.nodeName] || node.nodeName;
-		result.index = index;
-		result.nodeType = node.nodeType;
-		result.parent = node.parentNode?node.parentNode.dataset.index:0;
-
-		if (!this.notUndef(result.parent)) {
-			result.parent = 0;
+	_getNameForNode(nodeName) {
+		return this.NODE_NAMES_TO_REPLACE[nodeName] || nodeName;
+	}
+	_getParentForNode(node) {
+		let parent = node.parentNode ? node.parentNode.dataset.index : 0;
+		if (!this.isNotUndefined(parent)) {
+			return 0;
 		}
-		result.isSVG = this.isSVG(node);
+		return parent;
+	}
+	_getNodeTextContent(node) {
+		return node.children ? "" : node.data;
+	}
+	_formatStyle(styleNode, node, index) {
+		const result = {
+			styles: [],
+			nodeName: this._getNameForNode(node.nodeName),
+			index,
+			nodeType: node.nodeType,
+			parent: this._getParentForNode(node),
+			isSVG: this._isSVG(node),
+			textContent: this._getNodeTextContent(node)
+		};
+		const style = this._createStyleObject(styleNode);
+
 		if (result.isSVG && result.nodeName !== 'svg') {
 			result.styles = [];
 		} else {
 			result.styles = this.styleObjectToOptimalStyleArray(style, result.parent);
 		}
-		result.textContent = node.children ? "" : node.data;
+
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
-			result.attributes = Array.prototype.map.call(node.attributes, el=>{
-				return [el.nodeName, this.patchAttribute(el.nodeName, el.nodeValue)];
-			}).filter(([attrName])=>{
+			result.attributes = Array.prototype.map.call(node.attributes, el => {
+				return [el.nodeName, this._patchAttribute(el.nodeName, el.nodeValue)];
+			}).filter(([attrName]) => {
 				if (result.isSVG) {
 					return true;
 				}
@@ -453,35 +496,42 @@ class DomSnapshot {
 		}
 		return result;
 	}
-	getAllDomNodes(node, all=[]) {
-		var walk = document.createTreeWalker(node, NodeFilter.SHOW_ALL);
+	getAllDomNodes(node, all = []) {
+		let walk = this._getDocument().createTreeWalker(node, NodeFilter.SHOW_ALL);
 		let n = null;
-		while(n = walk.nextNode()) {
+		while (n = walk.nextNode()) {
 			all.push(n);
 		}
 	}
-	saveSnapshot() {
-		const id = Date.now();
+	saveSnapshot(rootNode = false, customId) {
+		const id = customId || Date.now();
 		const database = this.firebase.database();
-		this.clearState();
-		this.copyWorld();
+		this._clearState();
+		this._copyWorld(rootNode);
+
+		this.addMeta('Date', Date.now());
+		this.addMeta('URL', window.location.href);
+		this.addMeta('Browser', window.navigator.name);
+
+		let state = this._getState();
 
 		database
 			.ref(`snapshots/${id}`)
-			.set(this.getState());
+			.set(this._getState());
+
 		database
 			.ref(`snapshots-list/${id}`)
 			.set({
 				visible: true,
-				meta: this.meta
+				meta: state.meta
 			});
 		console.log(`snapshot ID is: ${id}`);
 		return id;
 	}
-	setBodyAttributes() {
+	_setBodyAttributes() {
 		const attributes = this.BODY_ATTRIBUTES;
-		const body = this.getBodyNode();
-		this._forEach(attributes,([name, value]) => {
+		const body = this._getBodyNode();
+		this._forEach(attributes, ([name, value]) => {
 			body.setAttribute(name, value);
 		})
 		return this;
@@ -489,25 +539,25 @@ class DomSnapshot {
 	setBodyNode(node) {
 		this._body = node;
 	}
-	setBodyStyle() {
-		this.setNodeStyleFromStyleArray(this.BODY_STYLE, this.getBodyNode());
+	_setBodyStyle() {
+		this._setNodeStyleFromStyleArray(this.BODY_STYLE, this._getBodyNode());
 		return this;
 	}
 	setHeadNode(node) {
 		this._head = node;
 	}
-	setHTMLStyle() {
-		const node = this.getHtmlNode();
+	_setHTMLStyle() {
+		const node = this._getHtmlNode();
 		if (node) {
-			this.setNodeStyleFromStyleArray(this.HTML_STYLE, node);
+			this._setNodeStyleFromStyleArray(this.HTML_STYLE, node);
 		}
 		return this;
 	}
 	setHtmlNode(node) {
 		this._html = node;
 	}
-	setNodeStyleFromStyleArray(styles, node) {
-		this._forEach(styles,(key) => {
+	_setNodeStyleFromStyleArray(styles, node) {
+		this._forEach(styles, (key) => {
 			const [name, value] = this.getFromOptimalValue(key);
 			node.style[name] = value;
 		});
@@ -517,7 +567,7 @@ class DomSnapshot {
 			console.log('meta should be an object');
 			return;
 		}
-		this.meta = Object.assign({},meta);
+		this.meta = Object.assign({}, meta);
 		return this;
 	}
 	setState(state) {
@@ -530,7 +580,7 @@ class DomSnapshot {
 		this.BODY_ATTRIBUTES = this.getArrayCopy(state.BODY_ATTRIBUTES) || [];
 	}
 	setStyleFromObject(node, styleObject) {
-		this._forEach(Object.keys(styleObject),(key) => {
+		this._forEach(Object.keys(styleObject), (key) => {
 			node.style[key] = styleObject[key];
 		});
 		return this;
@@ -541,14 +591,14 @@ class DomSnapshot {
 		this.setHtmlNode(node.parentNode);
 		this.setHeadNode(node.parentNode);
 	}
-	styleObjectToOptimalStyleArray(styleObject, parentIndex) {
+	styleObjectToOptimalStyleArray(styleObject = {}, parentIndex) {
 		let parentStyle = [];
-		if (this.notUndef(parentIndex)) {
+		if (this.isNotUndefined(parentIndex)) {
 			parentStyle = this.getParentStyleByIndex(parentIndex);
 		}
 		const styles = [];
-		this._forEach(Object.keys(styleObject), el=>{
-			let styleKey = this.getOptimalValue(el,styleObject[el]);
+		this._forEach(Object.keys(styleObject), el => {
+			let styleKey = this.getOptimalValue(el, styleObject[el]);
 			if (styleKey && !(this.INHERIT.includes(el) && parentStyle.includes(styleKey))) {
 				styles.push(styleKey);
 			}
@@ -556,11 +606,11 @@ class DomSnapshot {
 		return styles;
 	}
 	skipStyle(name, value) {
-		return this.isDefault(name, value);
+		return this._isDefaultStyle(name, value);
 	}
 	shouldTakeElement(node, nodeStyle) {
 
-		if (this.isSVG(node)) {
+		if (this._isSVG(node)) {
 			return true;
 		}
 
@@ -581,45 +631,66 @@ class DomSnapshot {
 
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
 			if (this.skipDisplayNone && node.style && nodeStyle.length) {
-					if (nodeStyle.display === 'none') {
-						node.dataset.ignored = true;
-						return false;
-					}
+				if (nodeStyle.display === 'none') {
+					node.dataset.ignored = true;
+					return false;
+				}
 			}
 		}
 
 		return true;
 	}
-	notUndef(el) {
-		let undef;
-		return el !== undef;
+	isNotUndefined(el) {
+		return el !== void (0);
 	}
-	notEmpty(arr) {
+	_isNotEmptyArray(arr) {
 		return arr && arr.length;
 	}
-	createNode(params, styles) {
+	_hasTextContent(node = { textContent: '' }) {
+		return typeof params.textContent === 'string' && params.textContent.length;
+	}
+	_hasNodeInCache(nodeName) {
+		return (nodeName in this.nodeCache);
+	}
+	_addNodeToCache(nodeName) {
+		this.nodeCache[nodeName] = this._getDocument().createElement(nodeName);
+	}
+	_getTextNode(textContent) {
+		return this._getDocument().createTextNode(textContent);
+	}
+	_getSVGNode(nodeName) {
+		return this._getDocument().createElementNS("http://www.w3.org/2000/svg", nodeName);
+	}
+	_addTextContent(node, params) {
+		if (this._hasTextContent(params)) {
+			node.textContent = textContent;
+		}
+	}
+	createNode(params = {
+		nodeType: '3',
+		textContent: 'noop',
+		isSVG: false,
+		nodeName: 'DIV'
+	}, styles) {
 
 		let node = null;
 
-		if (this.restrictedNodeTypes.includes(params.nodeType)) {
-			node = document.createTextNode(params.textContent);
-		} else if (params.isSVG) {
-			node = document.createElementNS("http://www.w3.org/2000/svg", params.nodeName);
+		const { nodeName, textContent, nodeType, isSVG } = params;
+
+		if (this.restrictedNodeTypes.includes(nodeType)) {
+			node = this._getTextNode(textContent);
+		} else if (isSVG) {
+			node = this._getSVGNode(nodeName);
 		} else {
-			if (!this.nodeCache[params.nodeName]) {
-				this.nodeCache[params.nodeName] = document.createElement(params.nodeName);
-			}
-			node = this.getNodeFromCache(params.nodeName);
-			if (typeof params.textContent === 'string' && params.textContent.length) {
-				node.textContent = params.textContent;
-			}
+			node = this._getNodeByName(nodeName);
+			this._addTextContent(node, params);
 		}
 
-		if (this.notEmpty(params.attributes)) {
+		if (this._isNotEmptyArray(params.attributes)) {
 			try {
-				this._forEach(params.attributes,([name,value])=>{
+				this._forEach(params.attributes, ([name, value]) => {
 					if (name && name !== '"') {
-						node.setAttribute(name,value);
+						node.setAttribute(name, value);
 					}
 				});
 			} catch (e) {
@@ -628,13 +699,16 @@ class DomSnapshot {
 		}
 
 
-		// addStyleNode
-		if (this.notEmpty(params.styles)) {
-			//this.setNodeStyleFromStyleArray(params.styles, node);
-			styles.push(`[data-index="${params.index}"] { ${this.getNodeStyleText(params.styles)} }`);
-			if (params.pseudoselectors) {
-				styles.push(`[data-index="${params.index}"]:before { ${this.getNodeStyleText(params.pseudoselectors.before)} }`);
-				styles.push(`[data-index="${params.index}"]:after { ${this.getNodeStyleText(params.pseudoselectors.after)} }`);
+		// _addStyleNode
+		if (this._isNotEmptyArray(params.styles)) {
+			if (this._USE_INLINE_STYLES) {
+				this._setNodeStyleFromStyleArray(params.styles, node);
+			} else {
+				styles.push(this._styleTextForNode(params.index, params.styles));
+				if (params.pseudoselectors) {
+					styles.push(this._styleTextForNode(params.index, params.pseudoselectors.before, ':before'));
+					styles.push(this._styleTextForNode(params.index, params.pseudoselectors.after, ':after'));
+				}
 			}
 		}
 
@@ -643,24 +717,27 @@ class DomSnapshot {
 		}
 		return node;
 	}
-	insertNode(node, obj, fragment) {
-		const selector = `[data-index="${node.dataset?node.dataset.parent:obj.parent}"]`;
+	_styleTextForNode(index, styles, postfix = '') {
+		return `[data-index="${index}"]${postfix} { ${this._getNodeStyleText(styles)} }`;
+	}
+	_insertNode(node, obj, fragment) {
+		const selector = `[data-index="${node.dataset ? node.dataset.parent : obj.parent}"]`;
 		const parent = fragment.querySelector(selector) || fragment;
 		parent.appendChild(node);
 	}
-	getEqualKeysDiff(first, second) {
+	_getEqualKeysDiff(first, second) {
 		let diffs = {};
-		Object.keys(first).map(key=>{
+		Object.keys(first).map(key => {
 			if (first[key] !== second[key]) {
 				diffs[key] = [first[key], second[key]];
 			}
 		});
 		return Object.keys(diffs).length ? diffs : false;
 	}
-	getStylesForPseudoSelectors(node) {
-		const before = this.createStyleObject(this.getStyleForNode(node, ':before'));
-		const after = this.createStyleObject(this.getStyleForNode(node, ':after'));
-		const styleDiff = this.getEqualKeysDiff(before, after);
+	_getStylesForPseudoSelectors(node) {
+		const before = this._createStyleObject(this._getStyleForNode(node, ':before'));
+		const after = this._createStyleObject(this._getStyleForNode(node, ':after'));
+		const styleDiff = this._getEqualKeysDiff(before, after);
 		if (styleDiff) {
 			return {
 				before: this.styleObjectToOptimalStyleArray(before),
@@ -671,10 +748,7 @@ class DomSnapshot {
 			return false;
 		}
 	}
-	getStyleForNode(element, pseudoselecor) {
-		if (!pseudoselecor) {
-			pseudoselecor = null;
-		}
+	_getStyleForNode(element, pseudoselecor = null) {
 		if (this.restrictedNodeTypes.includes(element.nodeType)) {
 			return [];
 		}
@@ -686,18 +760,27 @@ class DomSnapshot {
 		}
 		return style;
 	}
-	getBodyNode() {
+	_getBodyNode() {
 		return this._body || window.document.body;
 	}
-	getNodeStyleText(styles) {
+	_getDocument() {
+		return document;
+	}
+	_getNodeStyleText(styles) {
 		const style = [];
-		this._forEach(styles,(key)=>{
+		this._forEach(styles, (key) => {
 			const [name, value] = this.getFromOptimalValue(key);
 			style.push(`${name}:${value}`);
 		});
 		return style.join(';');
 	}
-	getNodeFromCache(tag) {
+	_getNodeByName(nodeName) {
+		if (!this._hasNodeInCache(nodeName)) {
+			this._addNodeToCache(nodeName);
+		}
+		return this._getNodeFromCache(nodeName);
+	}
+	_getNodeFromCache(tag) {
 		return this.nodeCache[tag].cloneNode(false);
 	}
 	getFromOptimalValue(value) {
@@ -725,7 +808,7 @@ class DomSnapshot {
 
 		return `${keyIndex}/${keyValue}`;
 	}
-	getState() {
+	_getState() {
 		return {
 			meta: this.cloneObject(this.meta),
 			items: this.getArrayCopy(this.items),

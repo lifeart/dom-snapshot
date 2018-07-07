@@ -1,5 +1,11 @@
 # DomSnapshot
-JS methods to serialize rendered HTML page to JSON and restore it
+JS methods to serialize rendered HTML page to JSON and restore it.
+JS library for browser-render HTML page serialization (with firebase support)
+JS * deserialization supported.
+
+# Use cases?
+- Grab all CSS from page!
+- Calc page diffs between renders!
 
 # Usage
 ```html
@@ -22,21 +28,6 @@ JS methods to serialize rendered HTML page to JSON and restore it
 
 `showSnapshot(id)` - restore page snapshot by id from firebase / _return snapshot object_
 
-`clearState()` - clear collected web-page state
-
-`setState(state)` - set page state from state object
-
-`getState()` - get current state object / _return state object_
-
-`copyWorldTo(items)` - copy current page state to items array
-
-`restoreWorldFrom(items)` - restore page from items array
-
-`destroyWorld()` - remove all document.body childrens
-
-`getStyleForNode(element)` - _return computed style from passed node_
-
-`loaded` - _return promise with loaded firebase_
 
 # Viwer
 An SPA for snapshots preview

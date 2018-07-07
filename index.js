@@ -761,7 +761,7 @@ class DomSnapshot {
 		if (this._isNotEmptyArray(params.attributes)) {
 			try {
 				this._forEach(params.attributes, ([name, value]) => {
-					if (name && name !== '"') {
+					if (name && !name.includes('"')) {
 						node.setAttribute(name, value);
 					}
 				});

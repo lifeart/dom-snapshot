@@ -566,7 +566,7 @@ class DomSnapshot {
 				if (result.isSVG) {
 					return true;
 				}
-				return attrName !== 'style';
+				return attrName !== 'style' && !attrName.includes('"');
 			});
 		}
 		return result;

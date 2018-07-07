@@ -6,6 +6,8 @@ class DomSnapshot {
 	constructor(config = {
 		inlineStyles: false, // use inline styles on restore
 		vacuum: false, // use node-vacuum (squashing) 
+		stylesCleanup: true,
+		capturePseudoselectors: true,
 		state: {
 			BODY_STYLE: [],
 			CACHE_KEYS: [],
@@ -32,6 +34,8 @@ class DomSnapshot {
 		this._USE_VACUUM = config.vacuum || false;
 		// append styles to dom node instead of style node
 		this._USE_INLINE_STYLES = config.inlineStyles || false;
+		this._USE_STYLES_CLEANUP = config.stylesCleanup || true;
+		this._USE_PSEUDOSELECTORS = config.capturePseudoselectors || true;
 
 
 		// node cache (for node creation)
@@ -281,7 +285,7 @@ class DomSnapshot {
 		return this.firebase.database().ref('snapshots/' + id)
 			.once('value')
 			.then((snapshot) => {
-				this.setState(snapshot.val());
+				this.setState(this, snapshot.val());
 				this.destroyWorld();
 				this.restoreWorld();
 				return snapshot.val();
@@ -295,13 +299,13 @@ class DomSnapshot {
 		this.CACHE_VALUES = [];
 		this.BODY_ATTRIBUTES = [];
 	}
-	getArrayCopy(element) {
+	_getArrayCopy(element) {
 		if (typeof element !== 'object' || element === null) {
 			return [];
 		}
 		return element.slice(0);
 	}
-	cloneObject(obj) {
+	_cloneObject(obj) {
 		if (typeof obj === 'undefined' || obj === null) {
 			return {};
 		}
@@ -316,19 +320,25 @@ class DomSnapshot {
 		const reindexMap = {};
 
 		this.meta = this._collectMeta();
-		this.BODY_ATTRIBUTES = this._getBodyAttributes();
-		this.HTML_STYLE = this.styleObjectToOptimalStyleArray(this._getHTMLStyle());
-		this.BODY_STYLE = this.styleObjectToOptimalStyleArray(this._getBodyStyle());
-		this.getAllDomNodes(rootNode || this._getBodyNode(), all);
 
-		for (let i = 0; i < all.length; i++) {
-			let item = all[i];
+		let target = rootNode || this._getBodyNode();
+
+		if (target === this._getBodyNode()) {
+			this.BODY_ATTRIBUTES = this._getBodyAttributes();
+			this.HTML_STYLE = this._styleObjectToOptimalStyleArray(this._getHTMLStyle());
+			this.BODY_STYLE = this._styleObjectToOptimalStyleArray(this._getBodyStyle());
+		}
+
+		let capturedNodes = this._getAllDomNodes(target);
+
+		for (let i = 0; i < capturedNodes.length; i++) {
+			let item = capturedNodes[i];
 			if (item.dataset) {
 				item.dataset.index = i;
 			}
 			let nodeStyle = this._getStyleForNode(item);
-			if (this.shouldTakeElement(item, nodeStyle)) {
-				if (item.dataset) {
+			if (this._shouldTakeElement(item, nodeStyle)) {
+				if (item.dataset && this._USE_PSEUDOSELECTORS) {
 					let pseudoselecorStyles = this._getStylesForPseudoSelectors(item);
 					if (pseudoselecorStyles) {
 						pseudoselecorStyles.index = i;
@@ -340,15 +350,19 @@ class DomSnapshot {
 			}
 		}
 
-		this._forEach(pseudoSelectorsStylesArray, (el) => {
-			let item = items[reindexMap[el.index]];
-			item.pseudoselectors = el;
-		});
+		if (this._USE_PSEUDOSELECTORS) {
+			this._forEach(pseudoSelectorsStylesArray, (el) => {
+				let item = items[reindexMap[el.index]];
+				item.pseudoselectors = el;
+			});
+		}
 
 		if (this._USE_VACUUM) {
-			this.items = this._vacuum(this.items);
+			this.items = this._vacuum(items);
 		}
-		this._cleanupStyles();
+		if (this._USE_STYLES_CLEANUP) {
+			this._cleanupStyles();
+		}
 	}
 	_getHtmlNode() {
 		return this._html || this._getBodyNode().parentNode || this._getBodyNode();
@@ -361,7 +375,8 @@ class DomSnapshot {
 			//this._setBodyStyle();
 		}
 
-		return this.restoreWorldFrom(this.items, target);
+		let source  = this;
+		return this.restoreWorldFrom(this.items, target, source);
 	}
 	_forEach(array, action) {
 		const length = array.length;
@@ -369,17 +384,17 @@ class DomSnapshot {
 			action(array[i], i);
 		}
 	}
-	restoreWorldFrom(items, target = false) {
+	restoreWorldFrom(items, target = false, source) {
 		const stylesToUppend = [];
 		const fragment = this._getDocument().createDocumentFragment();
 
 		this._forEach(items, (el) => {
-			this._insertNode(this.createNode(el, stylesToUppend), el, fragment);
+			this._insertNode(this._createNode(el, stylesToUppend), el, fragment);
 		})
 
-		stylesToUppend.push(`html { ${this._getNodeStyleText(this.HTML_STYLE)} }`);
-		stylesToUppend.push(`body { ${this._getNodeStyleText(this.BODY_STYLE)} }`);
-		this._cleanHeadNodeFromStyles();
+		stylesToUppend.push(`html { ${this._getNodeStyleText(source.HTML_STYLE)} }`);
+		stylesToUppend.push(`body { ${this._getNodeStyleText(source.BODY_STYLE)} }`);
+		
 		this._addStyleNode(stylesToUppend.reverse().join("\n"));
 		(target || this._getBodyNode()).appendChild(fragment);
 		return this;
@@ -395,10 +410,7 @@ class DomSnapshot {
 	destroyWorld() {
 		this._destroyBodyAttributes();
 		this._getBodyNode().innerHTML = '';
-		let styles = this._getHead().querySelectorAll('style');
-		for (let i = 0; i < styles.length; i++) {
-			this._getHead().removeChild(styles[i]);
-		}
+		this._cleanHeadNodeFromStyles();
 		return this;
 	}
 	_createStyleObject(styleNode) {
@@ -466,6 +478,35 @@ class DomSnapshot {
 	_getNodeTextContent(node) {
 		return node.children ? "" : node.data;
 	}
+	getSnapshotsDiff(s1, s2) {
+		let firstState = this.setState({}, s1);
+		let secondState = this.setState({}, s2);
+
+		let firstStyles = firstState.items.filter(e=>e.styles).map(el=>{
+			let item =  this._setNodeStyleFromStyleArray(el.styles, {});
+			return Object.assign({}, el, item);
+		});
+
+		let secondStyles = secondState.items.filter(e=>e.styles).map(el=>{
+			let item =  this._setNodeStyleFromStyleArray(el.styles, {});
+			return Object.assign({}, el, item);
+		});
+
+
+		let diffArray = [];
+
+		firstStyles.forEach((item, index)=>{
+			diffArray.push(this._getEqualKeysDiff(item, secondStyles[index])); 
+		});
+		
+		return diffArray.map((diff, index)=>{
+			return {
+				firstState: firstStyles[index],
+				secondState: secondStyles[index],
+				diff: diff
+			}
+		});
+	}
 	_formatStyle(styleNode, node, index) {
 		const result = {
 			styles: [],
@@ -481,7 +522,7 @@ class DomSnapshot {
 		if (result.isSVG && result.nodeName !== 'svg') {
 			result.styles = [];
 		} else {
-			result.styles = this.styleObjectToOptimalStyleArray(style, result.parent);
+			result.styles = this._styleObjectToOptimalStyleArray(style, result.parent);
 		}
 
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
@@ -496,12 +537,14 @@ class DomSnapshot {
 		}
 		return result;
 	}
-	getAllDomNodes(node, all = []) {
+	_getAllDomNodes(node) {
+		let listOfNodes = [];
 		let walk = this._getDocument().createTreeWalker(node, NodeFilter.SHOW_ALL);
 		let n = null;
 		while (n = walk.nextNode()) {
-			all.push(n);
+			listOfNodes.push(n);
 		}
+		return listOfNodes;
 	}
 	saveSnapshot(rootNode = false, customId) {
 		const id = customId || Date.now();
@@ -557,10 +600,14 @@ class DomSnapshot {
 		this._html = node;
 	}
 	_setNodeStyleFromStyleArray(styles, node) {
+		if (!node.style) {
+			node.style = [];
+		}
 		this._forEach(styles, (key) => {
 			const [name, value] = this.getFromOptimalValue(key);
 			node.style[name] = value;
 		});
+		return node;
 	}
 	setMeta(meta) {
 		if (typeof meta !== 'object') {
@@ -570,14 +617,15 @@ class DomSnapshot {
 		this.meta = Object.assign({}, meta);
 		return this;
 	}
-	setState(state) {
-		this.meta = this.cloneObject(state.meta) || this.meta || {};
-		this.items = this.getArrayCopy(state.items) || [];
-		this.CACHE_KEYS = this.getArrayCopy(state.CACHE_KEYS) || [];
-		this.CACHE_VALUES = this.getArrayCopy(state.CACHE_VALUES) || [];
-		this.BODY_STYLE = this.getArrayCopy(state.BODY_STYLE) || [];
-		this.HTML_STYLE = this.getArrayCopy(state.HTML_STYLE) || [];
-		this.BODY_ATTRIBUTES = this.getArrayCopy(state.BODY_ATTRIBUTES) || [];
+	setState(target = this, state) {
+		target.meta = this._cloneObject(state.meta) || this.meta || {};
+		target.items = this._getArrayCopy(state.items) || [];
+		target.CACHE_KEYS = this._getArrayCopy(state.CACHE_KEYS) || [];
+		target.CACHE_VALUES = this._getArrayCopy(state.CACHE_VALUES) || [];
+		target.BODY_STYLE = this._getArrayCopy(state.BODY_STYLE) || [];
+		target.HTML_STYLE = this._getArrayCopy(state.HTML_STYLE) || [];
+		target.BODY_ATTRIBUTES = this._getArrayCopy(state.BODY_ATTRIBUTES) || [];
+		return target;
 	}
 	setStyleFromObject(node, styleObject) {
 		this._forEach(Object.keys(styleObject), (key) => {
@@ -591,7 +639,7 @@ class DomSnapshot {
 		this.setHtmlNode(node.parentNode);
 		this.setHeadNode(node.parentNode);
 	}
-	styleObjectToOptimalStyleArray(styleObject = {}, parentIndex) {
+	_styleObjectToOptimalStyleArray(styleObject = {}, parentIndex) {
 		let parentStyle = [];
 		if (this.isNotUndefined(parentIndex)) {
 			parentStyle = this.getParentStyleByIndex(parentIndex);
@@ -608,7 +656,7 @@ class DomSnapshot {
 	skipStyle(name, value) {
 		return this._isDefaultStyle(name, value);
 	}
-	shouldTakeElement(node, nodeStyle) {
+	_shouldTakeElement(node, nodeStyle) {
 
 		if (this._isSVG(node)) {
 			return true;
@@ -666,7 +714,7 @@ class DomSnapshot {
 			node.textContent = textContent;
 		}
 	}
-	createNode(params = {
+	_createNode(params = {
 		nodeType: '3',
 		textContent: 'noop',
 		isSVG: false,
@@ -740,8 +788,8 @@ class DomSnapshot {
 		const styleDiff = this._getEqualKeysDiff(before, after);
 		if (styleDiff) {
 			return {
-				before: this.styleObjectToOptimalStyleArray(before),
-				after: this.styleObjectToOptimalStyleArray(after),
+				before: this._styleObjectToOptimalStyleArray(before),
+				after: this._styleObjectToOptimalStyleArray(after),
 				diff: styleDiff
 			};
 		} else {
@@ -810,13 +858,13 @@ class DomSnapshot {
 	}
 	_getState() {
 		return {
-			meta: this.cloneObject(this.meta),
-			items: this.getArrayCopy(this.items),
-			HTML_STYLE: this.getArrayCopy(this.HTML_STYLE),
-			BODY_STYLE: this.getArrayCopy(this.BODY_STYLE),
-			CACHE_KEYS: this.getArrayCopy(this.CACHE_KEYS),
-			CACHE_VALUES: this.getArrayCopy(this.CACHE_VALUES),
-			BODY_ATTRIBUTES: this.getArrayCopy(this.BODY_ATTRIBUTES)
+			meta: this._cloneObject(this.meta),
+			items: this._getArrayCopy(this.items),
+			HTML_STYLE: this._getArrayCopy(this.HTML_STYLE),
+			BODY_STYLE: this._getArrayCopy(this.BODY_STYLE),
+			CACHE_KEYS: this._getArrayCopy(this.CACHE_KEYS),
+			CACHE_VALUES: this._getArrayCopy(this.CACHE_VALUES),
+			BODY_ATTRIBUTES: this._getArrayCopy(this.BODY_ATTRIBUTES)
 		}
 	}
 	getParentStyleByIndex(index) {

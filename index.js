@@ -281,15 +281,34 @@ class DomSnapshot {
 	restoreSnapshot(id) {
 		return this._showSnapshot(id);
 	}
+	_fbAddToSnapshotList(id, data) {
+		this.firebase.database()
+			.ref(`snapshots-list/${id}`)
+			.set(data);
+	}
+	_fbSetSnapshot(id, snapshot) {
+		this.firebase.database()
+			.ref(`snapshots/${id}`)
+			.set(snapshot);
+	}
+	_fbGetSnapshot(id) {
+		return new Promise((resolve) => {
+			this.firebase.database().ref('snapshots/' + id)
+				.once('value')
+				.then((snapshot) => {
+					return resolve(snapshot.val());
+				});
+		});
+	}
+	getSnapshotById(id) {
+		return this._fbGetSnapshot(id);
+	}
 	_showSnapshot(id = '1502312089479') {
-		return this.firebase.database().ref('snapshots/' + id)
-			.once('value')
-			.then((snapshot) => {
-				this.setState(this, snapshot.val());
-				this.destroyWorld();
-				this.restoreWorld();
-				return snapshot.val();
-			});
+		return this.getSnapshotById(id).then((snapshot)=>{
+			this.destroyWorld();
+			this.setState(this, snapshot);
+			this.restoreWorld();
+		});
 	}
 	_clearState() {
 		this.items = [];
@@ -548,7 +567,7 @@ class DomSnapshot {
 	}
 	saveSnapshot(rootNode = false, customId) {
 		const id = customId || Date.now();
-		const database = this.firebase.database();
+
 		this._clearState();
 		this._copyWorld(rootNode);
 
@@ -558,16 +577,9 @@ class DomSnapshot {
 
 		let state = this._getState();
 
-		database
-			.ref(`snapshots/${id}`)
-			.set(this._getState());
-
-		database
-			.ref(`snapshots-list/${id}`)
-			.set({
-				visible: true,
-				meta: state.meta
-			});
+		this._fbSetSnapshot(id, state);
+		this._fbAddToSnapshotList(id, { visible: true, meta: state.meta });
+		
 		console.log(`snapshot ID is: ${id}`);
 		return id;
 	}

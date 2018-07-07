@@ -502,12 +502,16 @@ class DomSnapshot {
 		let secondState = this.setState({}, s2);
 
 		let firstStyles = firstState.items.filter(e=>e.styles).map(el=>{
-			let item =  this._setNodeStyleFromStyleArray(el.styles, {});
+			let item =  this._setNodeStyleFromStyleArray(el.styles, {
+				style: {}
+			});
 			return Object.assign({}, el, item);
 		});
 
 		let secondStyles = secondState.items.filter(e=>e.styles).map(el=>{
-			let item =  this._setNodeStyleFromStyleArray(el.styles, {});
+			let item =  this._setNodeStyleFromStyleArray(el.styles, {
+				style: {}
+			});
 			return Object.assign({}, el, item);
 		});
 
@@ -612,11 +616,8 @@ class DomSnapshot {
 		this._html = node;
 	}
 	_setNodeStyleFromStyleArray(styles, node) {
-		if (!node.style) {
-			node.style = [];
-		}
 		this._forEach(styles, (key) => {
-			const [name, value] = this.getFromOptimalValue(key);
+			const [name, value] = this._getFromOptimalValue(key);
 			node.style[name] = value;
 		});
 		return node;
@@ -829,7 +830,7 @@ class DomSnapshot {
 	_getNodeStyleText(styles) {
 		const style = [];
 		this._forEach(styles, (key) => {
-			const [name, value] = this.getFromOptimalValue(key);
+			const [name, value] = this._getFromOptimalValue(key);
 			style.push(`${name}:${value}`);
 		});
 		return style.join(';');
@@ -843,7 +844,7 @@ class DomSnapshot {
 	_getNodeFromCache(tag) {
 		return this.nodeCache[tag].cloneNode(false);
 	}
-	getFromOptimalValue(value) {
+	_getFromOptimalValue(value) {
 		const [keyIndex, valueIndex] = value.split('/');
 		return [this.CACHE_KEYS[keyIndex], this.CACHE_VALUES[valueIndex]];
 	}

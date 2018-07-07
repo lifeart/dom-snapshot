@@ -284,7 +284,9 @@ class DomSnapshot {
 	showSnapshot(id, selector = false) {
 		return this.getSnapshotById(id).then((snapshot)=>{
 			this.destroyWorld();
-			this.restoreWorldFrom(document.querySelector(selector) || this._getBodyNode(), this.setState(this, snapshot));
+			let targetNode = document.querySelector(selector) || this._getBodyNode();
+			let source = this.setState(this, snapshot);
+			this.restoreWorldFrom(source, targetNode);
 		});
 	}
 	createSnapshot() {
@@ -319,7 +321,7 @@ class DomSnapshot {
 		return this.getSnapshotById(id).then((snapshot)=>{
 			this.destroyWorld();
 			this.setState(this, snapshot);
-			this.restoreWorld(rootElement);
+			this.restoreWorld(rootElement, this);
 		});
 	}
 	_clearState() {
@@ -397,16 +399,15 @@ class DomSnapshot {
 	_getHtmlNode() {
 		return this._html || this._getBodyNode().parentNode || this._getBodyNode();
 	}
-	restoreWorld(target = false) {
+	restoreWorld(target = false, source) {
 		
 		if (!target) {
-			//this._setHTMLStyle();
-			this._setBodyAttributes();
-			//this._setBodyStyle();
+			//this._setHTMLStyle(source);
+			this._setBodyAttributes(source);
+			//this._setBodyStyle(source);
 		}
 
-		let source  = this;
-		return this.restoreWorldFrom(target, source);
+		return this.restoreWorldFrom(source, target);
 	}
 	_forEach(array, action) {
 		const length = array.length;
@@ -414,20 +415,20 @@ class DomSnapshot {
 			action(array[i], i);
 		}
 	}
-	restoreWorldFrom(target = false, source) {
-		let items = source.items;
+	restoreWorldFrom(source, target = false) {
 		const stylesToUppend = [];
 		const fragment = this._getDocument().createDocumentFragment();
 
-		this._forEach(items, (el) => {
-			this._insertNode(this._createNode(el, stylesToUppend), el, fragment);
+		this._forEach(source.items, (el) => {
+			this._insertNode(this._createNode(el, stylesToUppend, source), el, fragment);
 		});
 
-		stylesToUppend.push(`html { ${this._getNodeStyleText(source.HTML_STYLE)} }`);
-		stylesToUppend.push(`body { ${this._getNodeStyleText(source.BODY_STYLE)} }`);
+		stylesToUppend.push(`html { ${this._getNodeStyleText(source.HTML_STYLE, source)} }`);
+		stylesToUppend.push(`body { ${this._getNodeStyleText(source.BODY_STYLE, source)} }`);
 		
 		this._addStyleNode(stylesToUppend.reverse().join('\n'));
-		(target || this._getBodyNode()).appendChild(fragment);
+		let rootNode = (target || this._getBodyNode());
+		rootNode.appendChild(fragment);
 		return this;
 	}
 	_destroyBodyAttributes() {
@@ -516,14 +517,14 @@ class DomSnapshot {
 		let firstStyles = firstState.items.filter(e=>e.styles).map(el=>{
 			let item =  this._setNodeStyleFromStyleArray(el.styles, {
 				style: {}
-			});
+			}, firstState);
 			return Object.assign({}, el, item);
 		});
 
 		let secondStyles = secondState.items.filter(e=>e.styles).map(el=>{
 			let item =  this._setNodeStyleFromStyleArray(el.styles, {
 				style: {}
-			});
+			}, secondState);
 			return Object.assign({}, el, item);
 		});
 
@@ -599,8 +600,8 @@ class DomSnapshot {
 		console.log(`snapshot ID is: ${id}`);
 		return id;
 	}
-	_setBodyAttributes() {
-		const attributes = this.BODY_ATTRIBUTES;
+	_setBodyAttributes(source) {
+		const attributes = source.BODY_ATTRIBUTES;
 		const body = this._getBodyNode();
 		this._forEach(attributes, ([name, value]) => {
 			body.setAttribute(name, value);
@@ -610,26 +611,26 @@ class DomSnapshot {
 	setBodyNode(node) {
 		this._body = node;
 	}
-	_setBodyStyle() {
-		this._setNodeStyleFromStyleArray(this.BODY_STYLE, this._getBodyNode());
+	_setBodyStyle(source) {
+		this._setNodeStyleFromStyleArray(source.BODY_STYLE, this._getBodyNode(), source);
 		return this;
 	}
 	setHeadNode(node) {
 		this._head = node;
 	}
-	_setHTMLStyle() {
+	_setHTMLStyle(source) {
 		const node = this._getHtmlNode();
 		if (node) {
-			this._setNodeStyleFromStyleArray(this.HTML_STYLE, node);
+			this._setNodeStyleFromStyleArray(source.HTML_STYLE, node, source);
 		}
 		return this;
 	}
 	setHtmlNode(node) {
 		this._html = node;
 	}
-	_setNodeStyleFromStyleArray(styles, node) {
+	_setNodeStyleFromStyleArray(styles, node, source) {
 		this._forEach(styles, (key) => {
-			const [name, value] = this._getFromOptimalValue(key);
+			const [name, value] = this._getFromOptimalValue(key, source);
 			node.style[name] = value;
 		});
 		return node;
@@ -744,7 +745,7 @@ class DomSnapshot {
 		textContent: 'noop',
 		isSVG: false,
 		nodeName: 'DIV'
-	}, styles) {
+	}, styles, source) {
 
 		let node = null;
 
@@ -775,12 +776,12 @@ class DomSnapshot {
 		// _addStyleNode
 		if (this._isNotEmptyArray(params.styles)) {
 			if (this._USE_INLINE_STYLES) {
-				this._setNodeStyleFromStyleArray(params.styles, node);
+				this._setNodeStyleFromStyleArray(params.styles, node, source);
 			} else {
-				styles.push(this._styleTextForNode(params.index, params.styles));
+				styles.push(this._styleTextForNode(params.index, params.styles, '', source));
 				if (params.pseudoselectors) {
-					styles.push(this._styleTextForNode(params.index, params.pseudoselectors.before, ':before'));
-					styles.push(this._styleTextForNode(params.index, params.pseudoselectors.after, ':after'));
+					styles.push(this._styleTextForNode(params.index, params.pseudoselectors.before, ':before', source));
+					styles.push(this._styleTextForNode(params.index, params.pseudoselectors.after, ':after', source));
 				}
 			}
 		}
@@ -790,8 +791,8 @@ class DomSnapshot {
 		}
 		return node;
 	}
-	_styleTextForNode(index, styles, postfix = '') {
-		return `[data-index="${index}"]${postfix} { ${this._getNodeStyleText(styles)} }`;
+	_styleTextForNode(index, styles, postfix = '', source) {
+		return `[data-index="${index}"]${postfix} { ${this._getNodeStyleText(styles, source)} }`;
 	}
 	_insertNode(node, obj, fragment) {
 		const selector = `[data-index="${node.dataset ? node.dataset.parent : obj.parent}"]`;
@@ -839,10 +840,10 @@ class DomSnapshot {
 	_getDocument() {
 		return document;
 	}
-	_getNodeStyleText(styles) {
+	_getNodeStyleText(styles, source) {
 		const style = [];
 		this._forEach(styles, (key) => {
-			const [name, value] = this._getFromOptimalValue(key);
+			const [name, value] = this._getFromOptimalValue(key, source);
 			style.push(`${name}:${value}`);
 		});
 		return style.join(';');
@@ -856,9 +857,9 @@ class DomSnapshot {
 	_getNodeFromCache(tag) {
 		return this.nodeCache[tag].cloneNode(false);
 	}
-	_getFromOptimalValue(value) {
+	_getFromOptimalValue(value, source = this) {
 		const [keyIndex, valueIndex] = value.split('/');
-		return [this.CACHE_KEYS[keyIndex], this.CACHE_VALUES[valueIndex]];
+		return [source.CACHE_KEYS[keyIndex], source.CACHE_VALUES[valueIndex]];
 	}
 	getOptimalValue(key, value) {
 

@@ -40,7 +40,9 @@ class DomSnapshot {
 		this._USE_STYLES_CLEANUP = config.stylesCleanup || true;
 		this._USE_PSEUDOSELECTORS = config.capturePseudoselectors || true;
 
-
+		this._NAMESPACES = {
+			SVG: 'http://www.w3.org/2000/svg'
+		};
 		// node cache (for node creation)
 		this.nodeCache = {};
 		// roots init
@@ -177,16 +179,17 @@ class DomSnapshot {
 		if (!element.parentNode || !element.parentNode.dataset) {
 			return false;
 		}
-		const svgResult = element.parentNode.dataset.svg;
+		let svgResult = element.parentNode.dataset.svg;
 		if (svgResult && element.dataset) {
 			element.dataset.svg = true;
+		}
+		if (svgResult === 'true') {
+			svgResult = true;
 		}
 		return svgResult || false;
 	}
 	_getBodyAttributes() {
-		return Array.prototype.map.call(this._getBodyNode().attributes, el => {
-			return [el.nodeName, el.nodeValue];
-		});
+		return this._extractNodeAttributes(this._getBodyNode());
 	}
 	_getBodyStyle() {
 		return this._createStyleObject(this._getStyleForNode(this._getBodyNode()));
@@ -364,17 +367,24 @@ class DomSnapshot {
 		const pseudoSelectorsStylesArray = [];
 		const reindexMap = {};
 		let items = source.items;
+		
 		source.meta = this._collectMeta();
 
 		let target = rootNode || this._getBodyNode();
 
-		if (target === this._getBodyNode()) {
+		let isBodyNodeRoot = target === this._getBodyNode();
+
+		if (isBodyNodeRoot) {
 			source.BODY_ATTRIBUTES = this._getBodyAttributes();
 			source.HTML_STYLE = this._styleObjectToOptimalStyleArray(this._getHTMLStyle(), undefined, source);
 			source.BODY_STYLE = this._styleObjectToOptimalStyleArray(this._getBodyStyle(), undefined, source);
 		}
 
 		let capturedNodes = this._getAllDomNodes(target);
+
+		if (!isBodyNodeRoot) {
+			capturedNodes.unshift(rootNode);
+		}
 
 		for (let i = 0; i < capturedNodes.length; i++) {
 			let item = capturedNodes[i];
@@ -390,7 +400,7 @@ class DomSnapshot {
 						pseudoSelectorsStylesArray.push(pseudoselecorStyles);
 					}
 				}
-				items.push(this._formatStyle(nodeStyle, item, i, source));
+				items.push(this._serializeNode(nodeStyle, item, i, source));
 				reindexMap[i] = items.length - 1;
 			}
 		}
@@ -518,10 +528,16 @@ class DomSnapshot {
 		if (!this.isNotUndefined(parent)) {
 			return 0;
 		}
-		return parent;
+		return parseInt(parent);
 	}
 	_getNodeTextContent(node) {
 		return node.children ? '' : node.data;
+	}
+	_arrayToObject(arr = []) {
+		return arr.reduce((result, [key, value])=>{
+			result[key] = value;
+			return result;
+		}, {});
 	}
 	getSnapshotsDiff(s1, s2) {
 		let firstState = this.setState({}, s1);
@@ -541,20 +557,22 @@ class DomSnapshot {
 			return Object.assign({}, el, item);
 		});
 
-
-		let diffArray = [];
-
-		firstStyles.forEach((item, index)=>{
-			diffArray.push(this._getEqualKeysDiff(item, secondStyles[index])); 
-		});
 		
-		return diffArray.map((diff, index)=>{
+
+		let diffArray = new Array(firstState.items.length).fill(null);
+		
+		return diffArray.map((_, index)=>{
 			return {
-				firstState: firstStyles[index],
-				secondState: secondStyles[index],
-				diff: diff
+				firstNode: firstStyles[index],
+				secondNode: secondStyles[index],
+				stylesDiff: this._getAllKeysDiff(firstStyles[index].style, secondStyles[index].style),
+				attributesDiff: this._getAllKeysDiff(this._arrayToObject(firstStyles[index].attributes), this._arrayToObject(secondStyles[index].attributes))
 			};
 		});
+	}
+	_serializeNode(styleNode, node, index, source) {
+		let payload =  this._formatStyle(styleNode, node, index, source);
+		return payload;
 	}
 	_formatStyle(styleNode, node, index, source) {
 		const result = {
@@ -568,16 +586,14 @@ class DomSnapshot {
 		};
 		const style = this._createStyleObject(styleNode);
 
-		if (result.isSVG && result.nodeName !== 'svg') {
-			result.styles = [];
-		} else {
+		// if (result.isSVG && result.nodeName !== 'svg') {
+			// result.styles = [];
+		// } else {
 			result.styles = this._styleObjectToOptimalStyleArray(style, result.parent, source);
-		}
+		// }
 
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
-			result.attributes = Array.prototype.map.call(node.attributes, el => {
-				return [el.nodeName, this._patchAttribute(el.nodeName, el.nodeValue)];
-			}).filter(([attrName]) => {
+			result.attributes = this._extractNodeAttributes(node).filter(([attrName]) => {
 				if (result.isSVG) {
 					return true;
 				}
@@ -585,6 +601,13 @@ class DomSnapshot {
 			});
 		}
 		return result;
+	}
+	_extractNodeAttributes(node) {
+		return Array.prototype.map.call(node.attributes, el => {
+			return [el.nodeName, this._patchAttribute(el.nodeName, el.nodeValue)];
+		}).filter(([attrName])=>{
+			return !attrName.includes('ng-');
+		});
 	}
 	_getAllDomNodes(node) {
 		let listOfNodes = [];
@@ -754,7 +777,7 @@ class DomSnapshot {
 		return this._getDocument().createTextNode(textContent);
 	}
 	_getSVGNode(nodeName) {
-		return this._getDocument().createElementNS('http://www.w3.org/2000/svg', nodeName);
+		return this._getDocument().createElementNS(this._NAMESPACES.SVG, nodeName);
 	}
 	_addTextContent(node, params) {
 		if (this._hasTextContent(params)) {
@@ -785,7 +808,11 @@ class DomSnapshot {
 			try {
 				this._forEach(params.attributes, ([name, value]) => {
 					if (name && !name.includes('"')) {
-						node.setAttribute(name, value);
+						if (isSVG) {
+							node.setAttributeNS(this._NAMESPACES.SVG, name, value);
+						} else {
+							node.setAttribute(name, value);
+						}
 					}
 				});
 			} catch (e) {
@@ -819,6 +846,27 @@ class DomSnapshot {
 		const selector = `[data-index="${node.dataset ? node.dataset.parent : obj.parent}"]`;
 		const parent = fragment.querySelector(selector) || fragment;
 		parent.appendChild(node);
+	}
+	_getValueOrEmptyString(obj, key) {
+		if (key in obj) {
+			return obj[key];
+		} else {
+			return '';
+		}
+	}
+	_getAllKeysDiff(first = {}, second = {}) {
+		let fKeys = Object.keys(first);
+		let sKeys = Object.keys(second);
+		let allKeys = Array.from(new Set([].concat(fKeys, sKeys)));
+		let diffs = {};
+		allKeys.forEach((key)=>{
+			let fValue = this._getValueOrEmptyString(first, key);
+			let sValue = this._getValueOrEmptyString(second, key);
+			if (fValue !== sValue) {
+				diffs[key] = [fValue, sValue];
+			}
+		});
+		return Object.keys(diffs).length ? diffs : false ;
 	}
 	_getEqualKeysDiff(first, second) {
 		let diffs = {};
@@ -923,8 +971,8 @@ class DomSnapshot {
 			return source.BODY_STYLE || [];
 		} else {
 			for (let i = 0; i < index; i++) {
-				if (source.items[i].index === index) {
-					return source.items[i].style;
+				if (source.items[i] && source.items[i].index === index) {
+					return source.items[i].style || [];
 				}
 			}
 			return [];

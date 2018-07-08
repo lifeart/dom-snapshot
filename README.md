@@ -21,6 +21,31 @@ JS * deserialization supported.
 			snapshot.showSnapshot(id)
 		}, 3000);
 	});
+
+
+	/// or
+
+	
+	var selector  = '#readme > article > pre';
+
+	var s1 = snapshoter.takeSnapshot(selector);
+
+	document.querySelector(selector).style['fontSize'] = '20px';
+	document.querySelector(selector).setAttribute('foo', 'bar');
+	var s2 = snapshoter.takeSnapshot(selector);
+
+	var diff = snapshoter.getSnapshotsDiff(s1, s2);
+
+	console.log(diff);
+
+
+	/// 
+
+	// capture node and send it to server
+
+	snapshoter.saveSnapshot(Date.now(), snapshoter.createSnapshot('body'))
+
+	
 ```
 
 # Methods

@@ -11,6 +11,7 @@ class DomSnapshot {
 		vacuum: false, // use node-vacuum (squashing) 
 		stylesCleanup: true,
 		capturePseudoselectors: true,
+		safeAttributes: true,
 		state: {
 			BODY_STYLE: [],
 			CACHE_KEYS: [],
@@ -39,6 +40,7 @@ class DomSnapshot {
 		this._USE_INLINE_STYLES = config.inlineStyles || false;
 		this._USE_STYLES_CLEANUP = config.stylesCleanup || true;
 		this._USE_PSEUDOSELECTORS = config.capturePseudoselectors || true;
+		this._USE_SAFE_ATTRIBUTES = config.safeAttributes || true;
 
 		this._NAMESPACES = {
 			SVG: 'http://www.w3.org/2000/svg'
@@ -131,6 +133,124 @@ class DomSnapshot {
 			messagingSenderId: '578009354171'
 		};
 		this.intFirebase(this.fbConfig);
+
+
+		//https://www.w3schools.com/TAGs/ref_eventattributes.asp
+		this.ESCAPED_ATTRIBUTES = [
+			//body
+			'onafterprint',
+			'onbeforeprint',
+			'onbeforeunload',
+			'onerror',
+			'onhashchange',
+			'onload',
+			'onmessage',
+			'onoffline',
+			'ononline',
+			'onpagehide',
+			'onpageshow',
+			'onpopstate',
+			'onresize',
+			'onstorage',
+			'onunload',
+
+			//forms
+
+			'onblur',
+			'onchange',
+			'oncontextmenu',
+			'onfocus',
+			'oninput',
+			'oninvalid',
+			'onreset',
+			'onsearch',
+			'onselect',
+			'onsubmit',
+
+			//keyboard
+
+			'onkeydown',
+			'onkeypress',
+			'onkeyup',
+
+			//mouse
+
+			'onclick',
+			'ondblclick',
+			'onmousedown',
+			'onmousemove',
+			'onmouseout',
+			'onmouseover',
+			'onmouseup',
+			'onmousewheel',
+			'onwheel',
+
+			//Drag Events
+
+			'ondrag',
+			'ondragend',
+			'ondragenter',
+			'ondragleave',
+			'ondragover',
+			'ondragstart',
+			'ondrop',
+			'onscroll',
+
+			//Clipboard Events
+
+			'oncopy',
+			'oncut',
+			'onpaste',
+
+			// Media Events
+
+
+			'onabort',
+			'oncanplay',
+			'oncanplaythrough',
+			'oncuechange',
+			'ondurationchange',
+			'onemptied',
+			'onended',
+			'onerror',
+			'onloadeddata',
+			'onloadedmetadata',
+			'onloadstart',
+			'onpause',
+			'onplay',
+			'onplaying',
+			'onprogress',
+			'onratechange',
+			'onseeked',
+			'onseeking',
+			'onstalled',
+			'onsuspend',
+			'ontimeupdate',
+			'onvolumechange',
+			'onwaiting',
+
+			// Misc Events
+
+			'ontoggle'
+		];
+	}
+	_normalizeAttributeName(attrName) {
+		return String(attrName).trim().toLowerCase();
+	}
+	_isSafeAttribute(attrName) {
+		if (this._USE_SAFE_ATTRIBUTES 
+			&& 
+			this.ESCAPED_ATTRIBUTES.includes(this._normalizeAttributeName(attrName))) {
+			return false;
+		}
+		return !attrName.includes('ng-') && !attrName.includes('"') && !attrName.includes('style');
+	}
+	_extractNodeAttributes(node) {
+		return Array.prototype.map.call(node.attributes, el => {
+			return [el.nodeName, this._patchAttribute(el.nodeName, el.nodeValue)];
+		}).filter(([attrName])=>{
+			return this._isSafeAttribute(attrName);
+		});
 	}
 	resetTarget() {
 		this.setBodyNode(false);
@@ -593,21 +713,9 @@ class DomSnapshot {
 		// }
 
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
-			result.attributes = this._extractNodeAttributes(node).filter(([attrName]) => {
-				if (result.isSVG) {
-					return true;
-				}
-				return attrName !== 'style' && !attrName.includes('"');
-			});
+			result.attributes = this._extractNodeAttributes(node);
 		}
 		return result;
-	}
-	_extractNodeAttributes(node) {
-		return Array.prototype.map.call(node.attributes, el => {
-			return [el.nodeName, this._patchAttribute(el.nodeName, el.nodeValue)];
-		}).filter(([attrName])=>{
-			return !attrName.includes('ng-');
-		});
 	}
 	_getAllDomNodes(node) {
 		let listOfNodes = [];
@@ -807,11 +915,13 @@ class DomSnapshot {
 		if (this._isNotEmptyArray(params.attributes)) {
 			try {
 				this._forEach(params.attributes, ([name, value]) => {
-					if (name && !name.includes('"')) {
+					if (name) {
 						if (isSVG) {
 							node.setAttributeNS(this._NAMESPACES.SVG, name, value);
 						} else {
-							node.setAttribute(name, value);
+							if (this._isSafeAttribute(name)) {
+								node.setAttribute(name, value);
+							}
 						}
 					}
 				});

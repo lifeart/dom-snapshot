@@ -278,8 +278,8 @@ class DomSnapshot {
 
 		head.appendChild(style);
 	}
-	takeSnapshot(selector, name) {
-		return this.saveSnapshot(document.querySelector(selector), name);
+	takeSnapshot(selector) {
+		return this.createSnapshot(document.querySelector(selector));
 	}
 	showSnapshot(id, selector = false) {
 		return this.getSnapshotById(id).then((snapshot)=>{

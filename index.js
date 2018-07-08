@@ -203,11 +203,11 @@ class DomSnapshot {
 		return this._createStyleObject(styleNode);
 		// get optimal style, save as special node
 	}
-	addMeta(keyOrObject, value) {
+	addMeta(keyOrObject, value, target = this) {
 		if (typeof keyOrObject === 'object') {
-			this.meta = Object.assign(this.meta, keyOrObject);
+			target.meta = Object.assign(target.meta, keyOrObject);
 		} else {
-			this.meta[keyOrObject] = value;
+			target.meta[keyOrObject] = value;
 		}
 		return this;
 	}
@@ -289,9 +289,6 @@ class DomSnapshot {
 			this.restoreWorldFrom(source, targetNode);
 		});
 	}
-	createSnapshot() {
-		return this.saveSnapshot();
-	}
 	restoreSnapshot(id) {
 		return this._showSnapshot(id);
 	}
@@ -324,13 +321,13 @@ class DomSnapshot {
 			this.restoreWorld(rootElement, this);
 		});
 	}
-	_clearState() {
-		this.items = [];
-		this.CACHE_KEYS = [];
-		this.BODY_STYLE = [];
-		this.HTML_STYLE = [];
-		this.CACHE_VALUES = [];
-		this.BODY_ATTRIBUTES = [];
+	_clearState(target) {
+		target.items = [];
+		target.CACHE_KEYS = [];
+		target.BODY_STYLE = [];
+		target.HTML_STYLE = [];
+		target.CACHE_VALUES = [];
+		target.BODY_ATTRIBUTES = [];
 	}
 	_getArrayCopy(element) {
 		if (typeof element !== 'object' || element === null) {
@@ -344,21 +341,21 @@ class DomSnapshot {
 		}
 		return JSON.parse(JSON.stringify(obj));
 	}
-	_copyWorld(rootNode = false) {
-		return this._copyWorldTo(rootNode, this.items);
+	_copyWorld(rootNode = false, source) {
+		return this._copyWorldTo(rootNode, source);
 	}
-	_copyWorldTo(rootNode, items) {
+	_copyWorldTo(rootNode, source) {
 		const pseudoSelectorsStylesArray = [];
 		const reindexMap = {};
-
-		this.meta = this._collectMeta();
+		let items = source.items;
+		source.meta = this._collectMeta();
 
 		let target = rootNode || this._getBodyNode();
 
 		if (target === this._getBodyNode()) {
-			this.BODY_ATTRIBUTES = this._getBodyAttributes();
-			this.HTML_STYLE = this._styleObjectToOptimalStyleArray(this._getHTMLStyle());
-			this.BODY_STYLE = this._styleObjectToOptimalStyleArray(this._getBodyStyle());
+			source.BODY_ATTRIBUTES = this._getBodyAttributes();
+			source.HTML_STYLE = this._styleObjectToOptimalStyleArray(this._getHTMLStyle(), undefined, source);
+			source.BODY_STYLE = this._styleObjectToOptimalStyleArray(this._getBodyStyle(), undefined, source);
 		}
 
 		let capturedNodes = this._getAllDomNodes(target);
@@ -371,13 +368,13 @@ class DomSnapshot {
 			let nodeStyle = this._getStyleForNode(item);
 			if (this._shouldTakeElement(item, nodeStyle)) {
 				if (item.dataset && this._USE_PSEUDOSELECTORS) {
-					let pseudoselecorStyles = this._getStylesForPseudoSelectors(item);
+					let pseudoselecorStyles = this._getStylesForPseudoSelectors(item, source);
 					if (pseudoselecorStyles) {
 						pseudoselecorStyles.index = i;
 						pseudoSelectorsStylesArray.push(pseudoselecorStyles);
 					}
 				}
-				items.push(this._formatStyle(nodeStyle, item, i));
+				items.push(this._formatStyle(nodeStyle, item, i, source));
 				reindexMap[i] = items.length - 1;
 			}
 		}
@@ -390,10 +387,10 @@ class DomSnapshot {
 		}
 
 		if (this._USE_VACUUM) {
-			this.items = this._vacuum(items);
+			source.items = this._vacuum(items);
 		}
 		if (this._USE_STYLES_CLEANUP) {
-			this._cleanupStyles();
+			this._cleanupStyles(source);
 		}
 	}
 	_getHtmlNode() {
@@ -476,26 +473,26 @@ class DomSnapshot {
 		});
 		return items.filter((el, index) => !itemsToRemove.includes(index));
 	}
-	_cleanupStyles() {
+	_cleanupStyles(source) {
 		const stylesToRemove = [];
-		const styledItems = this.items.filter((e) => e.styles.length);
+		const styledItems = source.items.filter((e) => e.styles.length);
 		// collect browser default styles
-		this._forEach(this.HTML_STYLE, (style) => {
+		this._forEach(source.HTML_STYLE, (style) => {
 			if (styledItems.every((el) => el.styles.includes(style))) {
-				if (this.BODY_STYLE.includes(style)) {
+				if (source.BODY_STYLE.includes(style)) {
 					stylesToRemove.push(style);
 				}
 			}
 		});
 		// exclude collected stules
-		this.HTML_STYLE = this.HTML_STYLE.filter((el) => !stylesToRemove.includes(el));
-		this.BODY_STYLE = this.BODY_STYLE.filter((el) => !stylesToRemove.includes(el));
-		this._forEach(this.items, (item) => {
+		source.HTML_STYLE = source.HTML_STYLE.filter((el) => !stylesToRemove.includes(el));
+		source.BODY_STYLE = source.BODY_STYLE.filter((el) => !stylesToRemove.includes(el));
+		this._forEach(source.items, (item) => {
 			if (this._isNotEmptyArray(item.styles)) {
 				item.styles = item.styles.filter((el) => !stylesToRemove.includes(el));
 			}
 		});
-		this.BODY_STYLE = this.BODY_STYLE.filter(el => !stylesToRemove.includes(el));
+		source.BODY_STYLE = source.BODY_STYLE.filter(el => !stylesToRemove.includes(el));
 	}
 	_getNameForNode(nodeName) {
 		return this.NODE_NAMES_TO_REPLACE[nodeName] || nodeName;
@@ -543,7 +540,7 @@ class DomSnapshot {
 			};
 		});
 	}
-	_formatStyle(styleNode, node, index) {
+	_formatStyle(styleNode, node, index, source) {
 		const result = {
 			styles: [],
 			nodeName: this._getNameForNode(node.nodeName),
@@ -558,7 +555,7 @@ class DomSnapshot {
 		if (result.isSVG && result.nodeName !== 'svg') {
 			result.styles = [];
 		} else {
-			result.styles = this._styleObjectToOptimalStyleArray(style, result.parent);
+			result.styles = this._styleObjectToOptimalStyleArray(style, result.parent, source);
 		}
 
 		if (!this.restrictedNodeTypes.includes(node.nodeType)) {
@@ -582,21 +579,27 @@ class DomSnapshot {
 		}
 		return listOfNodes;
 	}
-	saveSnapshot(rootNode = false, customId) {
-		const id = customId || Date.now();
-
-		this._clearState();
-		this._copyWorld(rootNode);
-
-		this.addMeta('Date', Date.now());
-		this.addMeta('URL', window.location.href);
-		this.addMeta('Browser', window.navigator.name);
-
-		let state = this._getState();
-		console.log('state', state);
+	_fbSaveSnapshot(id, state) {
 		this._fbSetSnapshot(id, state);
 		this._fbAddToSnapshotList(id, { visible: true, meta: state.meta });
-		
+	}
+	createSnapshot(rootNode = false) {
+		let source = {};
+		this._clearState(source);
+		this._copyWorld(rootNode, source);
+		this.addMeta('Date', Date.now(), source);
+		this.addMeta('URL', window.location.href, source);
+		this.addMeta('Browser', window.navigator.name, source);
+		let state = this._getState(source);
+		console.log('state', state);
+		return state;
+	}
+	saveSnapshot(customId = false, state = false) {
+		const id = customId || Date.now();
+		if (!state) {
+			state = this.createSnapshot();
+		}
+		this._fbSaveSnapshot(id, state);
 		console.log(`snapshot ID is: ${id}`);
 		return id;
 	}
@@ -665,14 +668,14 @@ class DomSnapshot {
 		this.setHtmlNode(node.parentNode);
 		this.setHeadNode(node.parentNode);
 	}
-	_styleObjectToOptimalStyleArray(styleObject = {}, parentIndex) {
+	_styleObjectToOptimalStyleArray(styleObject = {}, parentIndex, source) {
 		let parentStyle = [];
 		if (this.isNotUndefined(parentIndex)) {
-			parentStyle = this.getParentStyleByIndex(parentIndex);
+			parentStyle = this.getParentStyleByIndex(parentIndex, source);
 		}
 		const styles = [];
 		this._forEach(Object.keys(styleObject), el => {
-			let styleKey = this.getOptimalValue(el, styleObject[el]);
+			let styleKey = this.getOptimalValue(el, styleObject[el], source);
 			if (styleKey && !(this.INHERIT.includes(el) && parentStyle.includes(styleKey))) {
 				styles.push(styleKey);
 			}
@@ -808,14 +811,14 @@ class DomSnapshot {
 		});
 		return Object.keys(diffs).length ? diffs : false;
 	}
-	_getStylesForPseudoSelectors(node) {
+	_getStylesForPseudoSelectors(node, source) {
 		const before = this._createStyleObject(this._getStyleForNode(node, ':before'));
 		const after = this._createStyleObject(this._getStyleForNode(node, ':after'));
 		const styleDiff = this._getEqualKeysDiff(before, after);
 		if (styleDiff) {
 			return {
-				before: this._styleObjectToOptimalStyleArray(before),
-				after: this._styleObjectToOptimalStyleArray(after),
+				before: this._styleObjectToOptimalStyleArray(before, undefined, source),
+				after: this._styleObjectToOptimalStyleArray(after, undefined, source),
 				diff: styleDiff
 			};
 		} else {
@@ -865,45 +868,45 @@ class DomSnapshot {
 		const [keyIndex, valueIndex] = value.split('/');
 		return [source.CACHE_KEYS[keyIndex], source.CACHE_VALUES[valueIndex]];
 	}
-	getOptimalValue(key, value) {
+	getOptimalValue(key, value, source) {
 
 		if (this.SKIP_STYLES[key] === value) {
 			return false;
 		}
 
-		let keyIndex = this.CACHE_KEYS.indexOf(key);
-		let keyValue = this.CACHE_VALUES.indexOf(value);
+		let keyIndex = source.CACHE_KEYS.indexOf(key);
+		let keyValue = source.CACHE_VALUES.indexOf(value);
 
 		if (keyIndex === -1) {
-			this.CACHE_KEYS.push(key);
-			keyIndex = this.CACHE_KEYS.length - 1;
+			source.CACHE_KEYS.push(key);
+			keyIndex = source.CACHE_KEYS.length - 1;
 		}
 
 		if (keyValue === -1) {
-			this.CACHE_VALUES.push(value);
-			keyValue = this.CACHE_VALUES.length - 1;
+			source.CACHE_VALUES.push(value);
+			keyValue = source.CACHE_VALUES.length - 1;
 		}
 
 		return `${keyIndex}/${keyValue}`;
 	}
-	_getState() {
+	_getState(target) {
 		return {
-			meta: this._cloneObject(this.meta),
-			items: this._getArrayCopy(this.items),
-			HTML_STYLE: this._getArrayCopy(this.HTML_STYLE),
-			BODY_STYLE: this._getArrayCopy(this.BODY_STYLE),
-			CACHE_KEYS: this._getArrayCopy(this.CACHE_KEYS),
-			CACHE_VALUES: this._getArrayCopy(this.CACHE_VALUES),
-			BODY_ATTRIBUTES: this._getArrayCopy(this.BODY_ATTRIBUTES)
+			meta: this._cloneObject(target.meta),
+			items: this._getArrayCopy(target.items),
+			HTML_STYLE: this._getArrayCopy(target.HTML_STYLE),
+			BODY_STYLE: this._getArrayCopy(target.BODY_STYLE),
+			CACHE_KEYS: this._getArrayCopy(target.CACHE_KEYS),
+			CACHE_VALUES: this._getArrayCopy(target.CACHE_VALUES),
+			BODY_ATTRIBUTES: this._getArrayCopy(target.BODY_ATTRIBUTES)
 		};
 	}
-	getParentStyleByIndex(index) {
+	getParentStyleByIndex(index, source) {
 		if (typeof index !== 'number') {
-			return this.BODY_STYLE || [];
+			return source.BODY_STYLE || [];
 		} else {
 			for (let i = 0; i < index; i++) {
-				if (this.items[i].index === index) {
-					return this.items[i].style;
+				if (source.items[i].index === index) {
+					return source.items[i].style;
 				}
 			}
 			return [];

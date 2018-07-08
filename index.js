@@ -278,8 +278,24 @@ class DomSnapshot {
 
 		head.appendChild(style);
 	}
+	_getDomNodeFromArgument(selector) {
+		let target = typeof selector === 'object' ? selector : document.querySelector(selector);
+		return target;
+	}
+	_cleanDomNode(target) {
+		while (target.firstChild) {
+			target.removeChild(target.firstChild);
+		}
+	}
 	takeSnapshot(selector) {
-		return this.createSnapshot(document.querySelector(selector));
+		return this.createSnapshot(this._getDomNodeFromArgument(selector));
+	}
+	renderSnapshot(selector, snapshot, rewriteDomContent = true) {
+		let target = this._getDomNodeFromArgument(selector);
+		if (rewriteDomContent) {
+			this._cleanDomNode(target);
+		}
+		this.restoreWorldFrom(snapshot, target);
 	}
 	showSnapshot(id, selector = false) {
 		return this.getSnapshotById(id).then((snapshot)=>{
@@ -572,7 +588,9 @@ class DomSnapshot {
 	}
 	_getAllDomNodes(node) {
 		let listOfNodes = [];
-		let walk = this._getDocument().createTreeWalker(node, NodeFilter.SHOW_ALL);
+		let walk = this._getDocument().createTreeWalker(node, NodeFilter.SHOW_ALL, (node)=>{
+			return !this.NODE_NAMES_TO_IGNORE.includes(node.nodeName);
+		});
 		let n = null;
 		while (n = walk.nextNode()) {
 			listOfNodes.push(n);
@@ -916,4 +934,6 @@ class DomSnapshot {
 
 if (typeof AUTOSTART === 'boolean' && AUTOSTART === true) {
 	DomSnapshot();
+} else {
+	window.snapshoter = new DomSnapshot();
 }

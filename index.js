@@ -562,10 +562,14 @@ class DomSnapshot {
 		const stylesToUppend = [];
 		const fragment = this._getDocument().createDocumentFragment();
 
+		let nodesIndex = {};
 		this._forEach(source.items, (el) => {
-			this._insertNode(this._createNode(el, stylesToUppend, source), el, fragment);
+			let node = this._createNode(el, stylesToUppend, source);
+			nodesIndex[el.index] = node;
+			this._insertNode(node, el, fragment, nodesIndex);
 		});
 
+		nodesIndex = {};
 		stylesToUppend.push(`html { ${this._getNodeStyleText(source.HTML_STYLE, source)} }`);
 		stylesToUppend.push(`body { ${this._getNodeStyleText(source.BODY_STYLE, source)} }`);
 		
@@ -952,9 +956,10 @@ class DomSnapshot {
 	_styleTextForNode(index, styles, postfix = '', source) {
 		return `[data-index="${index}"]${postfix} { ${this._getNodeStyleText(styles, source)} }`;
 	}
-	_insertNode(node, obj, fragment) {
-		const selector = `[data-index="${node.dataset ? node.dataset.parent : obj.parent}"]`;
-		const parent = fragment.querySelector(selector) || fragment;
+	_insertNode(node, obj, fragment, nodesIndex) {
+		let parentId = node.dataset ? node.dataset.parent : obj.parent;
+		const selector = `[data-index="${parentId}"]`;
+		const parent = fragment.querySelector(selector) || nodesIndex[parentId] || fragment;
 		parent.appendChild(node);
 	}
 	_getValueOrEmptyString(obj, key) {

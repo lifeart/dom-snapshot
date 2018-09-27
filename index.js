@@ -960,6 +960,9 @@ class DomSnapshot {
 		let parentId = node.dataset ? node.dataset.parent : obj.parent;
 		const selector = `[data-index="${parentId}"]`;
 		const parent = fragment.querySelector(selector) || nodesIndex[parentId] || fragment;
+		if (node === parent) {
+			return;	
+		}
 		parent.appendChild(node);
 	}
 	_getValueOrEmptyString(obj, key) {

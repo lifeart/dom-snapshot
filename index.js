@@ -959,7 +959,8 @@ class DomSnapshot {
 	_insertNode(node, obj, fragment, nodesIndex) {
 		let parentId = node.dataset ? node.dataset.parent : obj.parent;
 		const selector = `[data-index="${parentId}"]`;
-		const parent = fragment.querySelector(selector) || nodesIndex[parentId] || fragment;
+		// || nodesIndex[parentId]
+		const parent = fragment.querySelector(selector) || fragment;
 		if (node === parent) {
 			return;	
 		}

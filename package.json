@@ -4,7 +4,9 @@
   "description": "Take your dom tree picture",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "broccoli build --overwrite",
+    "serve": "broccoli serve",
+    "copy-artifacts": "cp ./dist/index.js ./index.js"
   },
   "repository": {
     "type": "git",
@@ -22,6 +24,13 @@
   },
   "homepage": "https://github.com/lifeart/dom-snapshot#readme",
   "devDependencies": {
-    "eslint": "^5.0.1"
+    "broccoli": "^2.0.0-beta.4",
+    "broccoli-cli": "^1.0.0",
+    "broccoli-funnel": "^2.0.1",
+    "broccoli-livereload": "^1.3.0",
+    "broccoli-merge-trees": "^3.0.1",
+    "broccoli-typescript-compiler": "^4.0.1",
+    "eslint": "^5.6.0",
+    "tslint": "^5.11.0"
   }
 }

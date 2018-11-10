@@ -1,18 +1,34 @@
 /*eslint no-unused-vars: ["error", { "argsIgnorePattern": "DomSnapshot" }]*/
 /* global firebase, AUTOSTART */
 
+import ESCAPED_ATTRIBUTES from './constants/escaped-attributes';
+import FIREBASE_DEFAULT_CONFIG from './config/firebase-default-config';
+import INHERIT_STYLE_ATTRIBUTES from './constants/inherit-style-attributes';
+import SKIPPED_STYLE_ATTRIBUTES from './constants/skipped-style-attributes';
+import DOM_NAMESPACES from './constants/dom-namespaces';
+import NODE_NAMES_TO_IGNORE from './constants/node-names-to-ignore';
+import NODE_NAMES_TO_REPLACE from './constants/node-names-to-replace';
+import DOM_PSEUDOSELECTORS from './constants/dom-pseudoselectors';
+import collectMeta from './utils/collect-meta';
+import isSvg from './utils/is-svg';
+
 class DomSnapshot {
 
+	private _loaded : any;
 	private BODY_STYLE: any[];
 	private CACHE_KEYS: any[];
 	private CACHE_VALUES: any[];
 	private BODY_ATTRIBUTES: any[];
 	private restrictedNodeTypes: number[];
 	private isLoaded: boolean;
+	private uidPrefix: null | string = null;
 	private skipDisplayNone: boolean;
 	private HTML_STYLE: any[];
 	private items: any[];
-	private meta: object;
+	private meta: null | {
+		hostname?: string,
+		protocol?: string
+	};
 	private _USE_VACUUM: boolean;
 	private _USE_INLINE_STYLES: boolean;
 	private _USE_STYLES_CLEANUP: boolean;
@@ -20,15 +36,23 @@ class DomSnapshot {
 	private _USE_SAFE_ATTRIBUTES: boolean;
 	private _NAMESPACES: { [key: string] : string };
 	private nodeCache: object;
-	private NODE_NAMES_TO_IGNORE: string[];
-	private NODE_NAMES_TO_REPLACE: { [key: string] : string };
 	private _html: false | Node;
 	private _head: false | Node;
 	private _body: false | Node;
-	private PSEUDOSELECTORS: string[];
-	private INHERIT: string[];
-	private SKIP_STYLES: { [key: string] : string };
 	private fbConfig: any;
+
+	// this nodes not going to snapshot
+	private NODE_NAMES_TO_IGNORE = NODE_NAMES_TO_IGNORE;
+	// iframes nodes will be replaced to div's
+	private NODE_NAMES_TO_REPLACE = NODE_NAMES_TO_REPLACE;
+	// pseudoselectors to capture
+	private PSEUDOSELECTORS = DOM_PSEUDOSELECTORS;
+	// inherit styles (based on css 2.1);
+	private INHERIT = INHERIT_STYLE_ATTRIBUTES;
+	// styles to skip from capturing
+	private SKIP_STYLES = SKIPPED_STYLE_ATTRIBUTES;
+	//https://www.w3schools.com/TAGs/ref_eventattributes.asp
+	private ESCAPED_ATTRIBUTES = ESCAPED_ATTRIBUTES;
 
 	/*
 	*/
@@ -68,81 +92,13 @@ class DomSnapshot {
 		this._USE_PSEUDOSELECTORS = config.capturePseudoselectors || true;
 		this._USE_SAFE_ATTRIBUTES = config.safeAttributes || true;
 
-		this._NAMESPACES = {
-			SVG: 'http://www.w3.org/2000/svg'
-		};
+		this._NAMESPACES = DOM_NAMESPACES;
 		// node cache (for node creation)
 		this.nodeCache = {};
 		// roots init
 		this._html = false;
 		this._head = false;
 		this._body = false;
-		// this nodes not going to snapshot
-		this.NODE_NAMES_TO_IGNORE = [
-			'NOSCRIPT', 'SCRIPT', 'STYLE', '#comment', '#document'
-		];
-		// iframes nodes will be replaced to div's
-		this.NODE_NAMES_TO_REPLACE = {
-			'IFRAME': 'DIV'
-		};
-		// pseudoselectors to capture
-		this.PSEUDOSELECTORS = [
-			':after', ':before', ':first-line', ':first-letter', ':selection'
-		];
-		// inherit styles (based on css 2.1);
-		this.INHERIT = [
-			'azimuth', 'border-collapse', 'border-spacing', 'caption-side',
-			'color', 'cursor', 'direction', 'elevation', 'empty-cells',
-			'font-family', 'font-size', 'font-style', 'font-variant', 'font-weight',
-			'font', 'letter-spacing', 'line-height', 'list-style-image', 'list-style-position',
-			'list-style-type', 'list-style', 'orphans', 'pitch-range', 'pitch', 'quotes', 'richness',
-			'speak-header', 'speak-numeral', 'speak-punctuation', 'speak',
-			'speech-rate', 'stress', 'text-align', 'text-indent', 'text-transform',
-			'visibility', 'voice-family', 'volume', 'white-space', 'widows', 'word-spacing'
-		];
-		// styles to skip from capturing
-		this.SKIP_STYLES = {
-			'align-items': 'normal',
-			'align-self': 'normal',
-			'clip-path': 'none',
-			'flex-basis': 'auto',
-			'flex-grow': '0',
-			'flex-shrink': '1',
-			'justify-content': 'normal',
-			'user-select': 'text',
-			'border-bottom-left-radius': '0px',
-			'border-bottom-right-radius': '0px',
-			'border-top-right-radius': '0px',
-			'border-top-left-radius': '0px',
-			'cursor': 'auto',
-			'background-position': '0% 0%',
-			'background-size': 'auto',
-			'direction': 'ltr',
-			// "margin-bottom": "0px",
-			// "margin-left": "0px",
-			// "margin-right": "0px",
-			// "margin-top": "0px",
-			'max-height': 'none',
-			'max-width': 'none',
-			'opacity': '1',
-			// "padding-bottom": "0px",
-			// "padding-left": "0px",
-			// "padding-right": "0px",
-			// "padding-top": "0px",
-			'right': 'auto',
-			'speak': 'normal',
-			'top': 'auto',
-			'transition-delay': '0s',
-			'transition-duration': '0s',
-			'transition-property': 'all',
-			'transition-timing-function': 'ease',
-			'vertical-align': 'baseline',
-			'visibility': 'visible',
-			'white-space': 'normal',
-			'widows': '2',
-			'word-break': 'normal',
-			'z-index': 'auto',
-		};
 
 		this.isLoaded = false;
 		// skip this node types
@@ -150,115 +106,8 @@ class DomSnapshot {
 		// skip hidden nodes
 		this.skipDisplayNone = true;
 		// firebase config with defaults
-		this.fbConfig = fbConfig || {
-			apiKey: 'AIzaSyA84vag_S0QSO7j1Eff4vZJEjdLc6wPx0M',
-			authDomain: 'dom-snapshot.firebaseapp.com',
-			databaseURL: 'https://dom-snapshot.firebaseio.com',
-			projectId: 'dom-snapshot',
-			storageBucket: 'dom-snapshot.appspot.com',
-			messagingSenderId: '578009354171'
-		};
+		this.fbConfig = fbConfig || FIREBASE_DEFAULT_CONFIG;
 		this.intFirebase(this.fbConfig);
-
-
-		//https://www.w3schools.com/TAGs/ref_eventattributes.asp
-		this.ESCAPED_ATTRIBUTES = [
-			//body
-			'onafterprint',
-			'onbeforeprint',
-			'onbeforeunload',
-			'onerror',
-			'onhashchange',
-			'onload',
-			'onmessage',
-			'onoffline',
-			'ononline',
-			'onpagehide',
-			'onpageshow',
-			'onpopstate',
-			'onresize',
-			'onstorage',
-			'onunload',
-
-			//forms
-
-			'onblur',
-			'onchange',
-			'oncontextmenu',
-			'onfocus',
-			'oninput',
-			'oninvalid',
-			'onreset',
-			'onsearch',
-			'onselect',
-			'onsubmit',
-
-			//keyboard
-
-			'onkeydown',
-			'onkeypress',
-			'onkeyup',
-
-			//mouse
-
-			'onclick',
-			'ondblclick',
-			'onmousedown',
-			'onmousemove',
-			'onmouseout',
-			'onmouseover',
-			'onmouseup',
-			'onmousewheel',
-			'onwheel',
-
-			//Drag Events
-
-			'ondrag',
-			'ondragend',
-			'ondragenter',
-			'ondragleave',
-			'ondragover',
-			'ondragstart',
-			'ondrop',
-			'onscroll',
-
-			//Clipboard Events
-
-			'oncopy',
-			'oncut',
-			'onpaste',
-
-			// Media Events
-
-
-			'onabort',
-			'oncanplay',
-			'oncanplaythrough',
-			'oncuechange',
-			'ondurationchange',
-			'onemptied',
-			'onended',
-			'onerror',
-			'onloadeddata',
-			'onloadedmetadata',
-			'onloadstart',
-			'onpause',
-			'onplay',
-			'onplaying',
-			'onprogress',
-			'onratechange',
-			'onseeked',
-			'onseeking',
-			'onstalled',
-			'onsuspend',
-			'ontimeupdate',
-			'onvolumechange',
-			'onwaiting',
-
-			// Misc Events
-
-			'ontoggle'
-		];
 	}
 	_normalizeAttributeName(attrName) {
 		return String(attrName).trim().toLowerCase();
@@ -288,17 +137,7 @@ class DomSnapshot {
 		this.setBodyNode(node);
 	}
 	_collectMeta() {
-		return {
-			userAgent: navigator.userAgent,
-			hostname: window.location.hostname,
-			protocol: window.location.protocol,
-			url: window.location.href,
-			screenWidth: window.screen.width,
-			screenHeight: window.screen.height,
-			screenAvailWidth: window.screen.availWidth,
-			screenAvailHeight: window.screen.availHeight,
-			timestamp: Date.now()
-		};
+		return collectMeta();
 	}
 	_patchAttribute(name, value) {
 		if (['src', 'href'].includes(name)) {
@@ -316,23 +155,7 @@ class DomSnapshot {
 		return value;
 	}
 	_isSVG(element) {
-		// https://www.w3.org/TR/SVG/propidx.html
-		const isSVGNode = element.nodeName.toLowerCase() === 'svg';
-		if (isSVGNode) {
-			element.dataset.svg = true;
-			return true;
-		}
-		if (!element.parentNode || !element.parentNode.dataset) {
-			return false;
-		}
-		let svgResult = element.parentNode.dataset.svg;
-		if (svgResult && element.dataset) {
-			element.dataset.svg = true;
-		}
-		if (svgResult === 'true') {
-			svgResult = true;
-		}
-		return svgResult || false;
+		return isSvg(element);
 	}
 	_getBodyAttributes() {
 		return this._extractNodeAttributes(this._getBodyNode());
@@ -345,7 +168,7 @@ class DomSnapshot {
 	}
 	_getBodyParentStyle() {
 		const body = this._getBodyNode();
-		let styleNode = [];
+		let styleNode: CSSStyleDeclaration | any[] = [];
 		if (body.parentNode) {
 			styleNode = this._getStyleForNode(body.parentNode);
 		}
@@ -479,7 +302,7 @@ class DomSnapshot {
 	getSnapshotById(id) {
 		return this._fbGetSnapshot(id);
 	}
-	_showSnapshot(id = '1502312089479', rootElement) {
+	_showSnapshot(id = '1502312089479', rootElement = window.document) {
 		return this.getSnapshotById(id).then((snapshot)=>{
 			this.destroyWorld();
 			this.setState(this, snapshot);
@@ -535,7 +358,7 @@ class DomSnapshot {
 		for (let i = 0; i < capturedNodes.length; i++) {
 			let item = capturedNodes[i];
 			if (item.dataset) {
-				item.dataset.index = i;
+				item.dataset[this._nodeSelectorDatasetName()] = i;
 			}
 			let nodeStyle = this._getStyleForNode(item);
 			if (this._shouldTakeElement(item, nodeStyle)) {
@@ -588,6 +411,8 @@ class DomSnapshot {
 		const stylesToUppend = [];
 		const fragment = this._getDocument().createDocumentFragment();
 
+		this.uidPrefix  = 'd' + Math.random().toString(36).slice(-2);
+
 		let nodesIndex = {};
 		this._forEach(source.items, (el) => {
 			let node = this._createNode(el, stylesToUppend, source);
@@ -602,6 +427,8 @@ class DomSnapshot {
 		this._addStyleNode(stylesToUppend.reverse().join('\n'));
 		let rootNode = (target || this._getBodyNode());
 		rootNode.appendChild(fragment);
+
+		this.uidPrefix = null;
 		return this;
 	}
 	_destroyBodyAttributes() {
@@ -674,7 +501,7 @@ class DomSnapshot {
 		return this.NODE_NAMES_TO_REPLACE[nodeName] || nodeName;
 	}
 	_getParentForNode(node) {
-		let parent = node.parentNode ? node.parentNode.dataset.index : 0;
+		let parent = node.parentNode ? node.parentNode.dataset[this._nodeSelectorDatasetName()] : 0;
 		if (!this.isNotUndefined(parent)) {
 			return 0;
 		}
@@ -729,6 +556,7 @@ class DomSnapshot {
 			styles: [],
 			nodeName: this._getNameForNode(node.nodeName),
 			index,
+			attributes: [],
 			nodeType: node.nodeType,
 			parent: this._getParentForNode(node),
 			isSVG: this._isSVG(node),
@@ -768,7 +596,7 @@ class DomSnapshot {
 		this._copyWorld(rootNode, source);
 		this.addMeta('Date', Date.now(), source);
 		this.addMeta('URL', window.location.href, source);
-		this.addMeta('Browser', window.navigator.naaddMetame, source);
+		this.addMeta('Browser', window.navigator.userAgent, source);
 		let state = this._getState(source);
 		console.log('state', state);
 		return state;
@@ -924,8 +752,13 @@ class DomSnapshot {
 	}
 	_createNode(params = {
 		nodeType: '3',
+		index: '3',
 		textContent: 'noop',
+		attributes: [],
+		styles: [],
+		parent: null,
 		isSVG: false,
+		pseudoselectors: undefined,
 		nodeName: 'DIV'
 	}, styles, source) {
 
@@ -933,7 +766,7 @@ class DomSnapshot {
 
 		const { nodeName, textContent, nodeType, isSVG } = params;
 
-		if (this.restrictedNodeTypes.includes(nodeType)) {
+		if (this.restrictedNodeTypes.includes(parseInt(nodeType))) {
 			node = this._getTextNode(textContent);
 		} else if (isSVG) {
 			node = this._getSVGNode(nodeName);
@@ -980,11 +813,24 @@ class DomSnapshot {
 		return node;
 	}
 	_styleTextForNode(index, styles, postfix = '', source) {
-		return `[data-index="${index}"]${postfix} { ${this._getNodeStyleText(styles, source)} }`;
+		return `[${this._nodeSelectorName()}="${this._nodeSelectorValue(index)}"]${postfix} { ${this._getNodeStyleText(styles, source)} }`;
+	}
+	_nodeSelectorName() {
+		return `data-${this._nodeSelectorDatasetName()}`;
+	}
+	_nodeSelectorDatasetName() {
+		if (this.uidPrefix !== null) {
+			return `${this.uidPrefix}`
+		} else {
+			return 'index';
+		}
+	}
+	_nodeSelectorValue(index) {
+		return index;
 	}
 	_insertNode(node, obj, fragment, nodesIndex) {
 		let parentId = node.dataset ? node.dataset.parent : obj.parent;
-		const selector = `[data-index="${parentId}"]`;
+		const selector = `[${this._nodeSelectorName()}="${this._nodeSelectorValue(parentId)}"]`;
 		// || nodesIndex[parentId]
 		const parent = fragment.querySelector(selector) || fragment;
 		if (node === parent) {
@@ -1030,7 +876,8 @@ class DomSnapshot {
 			return {
 				before: this._styleObjectToOptimalStyleArray(before, undefined, source),
 				after: this._styleObjectToOptimalStyleArray(after, undefined, source),
-				diff: styleDiff
+				diff: styleDiff,
+				index: null
 			};
 		} else {
 			return false;

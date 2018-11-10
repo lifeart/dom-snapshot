@@ -1,10 +1,46 @@
 <!doctype html><html>
 <head>
     <title>Broccoli.js Tutorial</title>
+    <link rel="stylesheet" href="test.css" />
+
 </head>
 <body>
-Eat your greens!
+    <h1>Zomg TESTS!</h1>
+    <div id="test1" class="test-block">
+        <h1>Text color, border-radius test</h1>
+        <div class="left">
+            <div class="source">
+                <div>
+                    <div>
+                        <span>gol!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="right"></div>
+    </div>
+    <div id="test2" class="test-block">
+        <h1>Text-shadow and box-shadow test</h1>
+        <div class="left">
+            <div class="source">
+                <div>
+                    hello
+                </div>
+            </div>
+        </div>
+        <div class="right"></div>
+    </div>
+
 <br />
 <script src="index.js"></script>
+<script>
+    console.log('window.snapshoter', window.snapshoter);
+
+    let tests = document.querySelectorAll('.test-block');
+    Array.prototype.forEach.call(tests, (node)=>{
+        const snapshot = snapshoter.takeSnapshot(node.querySelector('.left>.source'));
+        snapshoter.renderSnapshot(node.querySelector('.right'), snapshot, true);
+    });
+</script>
 </body>
 </html>

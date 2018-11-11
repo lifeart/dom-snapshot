@@ -215,7 +215,7 @@ class DomSnapshot {
     return value;
   }
   _isSVG(element) {
-    return element.namespaceURI === this._NAMESPACES.SVG;
+    return element.namespaceURI === this._NAMESPACES.svg;
   }
   _getBodyAttributes() {
     return this._extractNodeAttributes(this._getBodyNode());
@@ -891,7 +891,7 @@ class DomSnapshot {
     return this._getDocument().createTextNode(textContent);
   }
   _getSVGNode(nodeName) {
-    return this._getDocument().createElementNS(this._NAMESPACES.SVG, nodeName);
+    return this._getDocument().createElementNS(this._NAMESPACES.svg, nodeName);
   }
   _addTextContent(node, params) {
     if (this._hasTextContent(params)) {
@@ -934,11 +934,20 @@ class DomSnapshot {
       try {
         this._forEach(params.attributes, ([name, value]) => {
           if (name) {
+            // https://github.com/asnowwolf/angular/commit/3adb1abff81d60c8440a73c9ab75c193eaf2cf51
             if (isSVG) {
               if (name.includes("data-")) {
                 node.setAttribute(name, value);
               } else {
-                node.setAttributeNS(null, name, value);
+                try {
+                  node.setAttributeNS(null, name, value);
+                } catch(e) {
+                  try {
+                    node.setAttributeNS(this._NAMESPACES.svg, name, value);
+                  } catch (ee) {
+                    node.setAttribute(name, value);
+                  }
+                }
               }
             } else {
               if (this._isSafeAttribute(name)) {

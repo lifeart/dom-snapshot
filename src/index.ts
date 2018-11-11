@@ -302,13 +302,12 @@ class DomSnapshot {
       }
     }
   }
-  _addStyleNode(css, target = false) {
+  _addStyleNode(css) {
     const style: HTMLStyleElement & {
       styleSheet?: StyleSheet & { cssText: string };
     } = this._getDocument().createElement("style");
-    const head = target || this._getHead();
+    const head = this._getHead();
     style.type = "text/css";
-
     if (style.styleSheet) {
       style.styleSheet.cssText = css;
     } else {

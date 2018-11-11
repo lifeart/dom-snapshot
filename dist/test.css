@@ -46,4 +46,12 @@ body {
   text-shadow: aliceblue 3px 3px 3px;
 }
 
+#test5 .source b {
+  text-align: center;
+  text-transform: lowercase;
+  text-decoration: wavy;
+  text-decoration-color: indigo;
+  text-decoration-line: 2px;
+}
+
 /*# sourceMappingURL=test.css.map */

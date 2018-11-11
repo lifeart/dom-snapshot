@@ -30,7 +30,65 @@
         </div>
         <div class="right"></div>
     </div>
-
+    <div id="test3" class="test-block">
+        <h1>Table test</h1>
+        <div class="left">
+            <div class="source">
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>1</th>
+                            <th><svg width="200" height="200">
+                                    <rect x="0" y="0" width="100" height="100" fill="#529fca" />
+                                    <g id="my-group">
+                                      <rect x="0" y="100" width="100" height="100" fill="#59fa81" />
+                                      <rect x="100" y="0" width="100" height="100" fill="#59fa81" />
+                                    </g>
+                                  </svg>
+                            </th>
+                            <th>3</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                            <tr>
+                                    <td>1</td>
+                                    <td>2</td>
+                                    <td>2</td>
+                                </tr>
+                    </tbody>
+                   
+                </table>
+            </div>
+        </div>
+        <div class="right"></div>
+    </div>
+    <div id="test4" class="test-block">
+        <h1>Native inputs</h1>
+        <div class="left">
+            <div class="source">
+                <form>
+                    <input type="datetime-local" id="i12" />
+                    <input type="datetime" id="i13"/>
+                    <input type="date" id="i14">
+                    <input type="month" id="i15">
+                    <input type="color" id="i16">
+                    <input type="checkbox" id="i17">
+                    <input type="radio" id="i18">
+                    <input type="range" id="i19">
+                </form>
+            </div>
+        </div>
+        <div class="right"></div>
+    </div>
+    <div id="test5" class="test-block">
+        <h1>Creepy inline styles</h1>
+        <div class="left">
+            <div class="source">
+                <b style="display: block; text-shadow: 12px; background-color: blue;">12321</b>
+            </div>                    
+        </div>
+        <div class="right"></div>
+    </div>
 <br />
 <script src="index.js"></script>
 <script>
@@ -40,6 +98,13 @@
     Array.prototype.forEach.call(tests, (node)=>{
         const snapshot = snapshoter.takeSnapshot(node.querySelector('.left>.source'));
         snapshoter.renderSnapshot(node.querySelector('.right'), snapshot, true);
+        const snapshotResult = snapshoter.takeSnapshot(node.querySelector('.right>.source'));
+        var diff = snapshoter.getSnapshotsDiff(snapshot, snapshotResult);
+        var diffResult = diff.filter((item)=>{
+            return Array.isArray(item.attributesDiff)  || Array.isArray(item.stylesDiff);
+        });
+        console.log('diffResult', diffResult);
+        
     });
 </script>
 </body>

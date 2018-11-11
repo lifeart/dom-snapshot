@@ -17,24 +17,25 @@ declare global {
 }
 
 interface ISerializedNode {
-	styles: any[],
-	nodeName: string,
-	index: number,
-	attributes: any[],
-	nodeType: string,
-	pseudoselectors: undefined | {
-		after?: any,
-		before?: any
-	},
-	parent: number,
-	isSVG: boolean,
-	textContent: string
+  styles: any[];
+  nodeName: string;
+  index: number;
+  attributes: any[];
+  nodeType: string;
+  pseudoselectors:
+    | undefined
+    | {
+        after?: any;
+        before?: any;
+      };
+  parent: number;
+  isSVG: boolean;
+  textContent: string;
 }
 
 interface INodesIndex {
-	[key: number]: Node
+  [key: number]: Node;
 }
-
 
 import ESCAPED_ATTRIBUTES from "./constants/escaped-attributes";
 import FIREBASE_DEFAULT_CONFIG from "./config/firebase-default-config";
@@ -90,7 +91,7 @@ class DomSnapshot {
   private ESCAPED_ATTRIBUTES = ESCAPED_ATTRIBUTES;
 
   /*
-	*/
+   */
   constructor(
     config = {
       inlineStyles: false, // use inline styles on restore
@@ -172,8 +173,8 @@ class DomSnapshot {
     }
     return (
       !attrName.includes("ng-") &&
-	  !attrName.includes('"') &&
-	  !attrName.includes("data-uid_") && 
+      !attrName.includes('"') &&
+      !attrName.includes("data-uid_") &&
       !attrName.includes("style")
     );
   }
@@ -214,7 +215,7 @@ class DomSnapshot {
     return value;
   }
   _isSVG(element) {
-	return element.namespaceURI === this._NAMESPACES.SVG;
+    return element.namespaceURI === this._NAMESPACES.SVG;
   }
   _getBodyAttributes() {
     return this._extractNodeAttributes(this._getBodyNode());
@@ -332,16 +333,16 @@ class DomSnapshot {
     return this.createSnapshot(this._getDomNodeFromArgument(selector));
   }
   renderSnapshot(selector, snapshot, rewriteDomContent = true) {
-	let target = this._getDomNodeFromArgument(selector);
-	if (target === null) {
-		throw new Error(`unable to find target by selector ${selector}`);
-	}
+    let target = this._getDomNodeFromArgument(selector);
+    if (target === null) {
+      throw new Error(`unable to find target by selector ${selector}`);
+    }
     if (rewriteDomContent) {
       this._cleanDomNode(target);
     }
     this.restoreWorldFrom(snapshot, target);
   }
-  showSnapshot(id, selector = false) {
+  showSnapshot(id, selector: Node | string | boolean = false) {
     return this.getSnapshotById(id).then(snapshot => {
       this.destroyWorld();
       let targetNode =
@@ -439,13 +440,13 @@ class DomSnapshot {
 
     if (!isBodyNodeRoot) {
       capturedNodes.unshift(rootNode);
-	}
-	
-	const nodesMap = new WeakMap();
+    }
+
+    const nodesMap = new WeakMap();
 
     for (let i = 0; i < capturedNodes.length; i++) {
-	  let item = capturedNodes[i];
-	  nodesMap.set(item, i);
+      let item = capturedNodes[i];
+      nodesMap.set(item, i);
       let nodeStyle = this._getStyleForNode(item);
       if (this._shouldTakeElement(item, nodeStyle)) {
         if (item.dataset && this._USE_PSEUDOSELECTORS) {
@@ -510,8 +511,8 @@ class DomSnapshot {
       let node: Node = this._createNode(el, stylesToUppend, source);
       nodesIndex[el.index] = node;
       this._insertNode(node, el, fragment, nodesIndex);
-	});
-	
+    });
+
     stylesToUppend.push(
       `html { ${this._getNodeStyleText(source.HTML_STYLE, source)} }`
     );
@@ -602,7 +603,9 @@ class DomSnapshot {
     return this.NODE_NAMES_TO_REPLACE[nodeName] || nodeName;
   }
   _getParentForNode(node, nodesMap: WeakMap<Node, number>) {
-	let parentId = nodesMap.has(node.parentNode) ? nodesMap.get(node.parentNode) : 0;
+    let parentId = nodesMap.has(node.parentNode)
+      ? nodesMap.get(node.parentNode)
+      : 0;
     let parent = parentId ? parentId : 0;
     if (!this.isNotUndefined(parent)) {
       return 0;
@@ -622,27 +625,31 @@ class DomSnapshot {
     let firstState = this.setState({} as any, s1);
     let secondState = this.setState({} as any, s2);
 
-    let firstStyles = firstState.items.filter(e => e.styles).map(el => {
-      let item = this._setNodeStyleFromStyleArray(
-        el.styles,
-        {
-          style: {}
-        },
-        firstState
-      );
-      return Object.assign({}, el, item);
-    });
+    let firstStyles = firstState.items
+      .filter(e => e.styles)
+      .map(el => {
+        let item = this._setNodeStyleFromStyleArray(
+          el.styles,
+          {
+            style: {}
+          },
+          firstState
+        );
+        return Object.assign({}, el, item);
+      });
 
-    let secondStyles = secondState.items.filter(e => e.styles).map(el => {
-      let item = this._setNodeStyleFromStyleArray(
-        el.styles,
-        {
-          style: {}
-        },
-        secondState
-      );
-      return Object.assign({}, el, item);
-    });
+    let secondStyles = secondState.items
+      .filter(e => e.styles)
+      .map(el => {
+        let item = this._setNodeStyleFromStyleArray(
+          el.styles,
+          {
+            style: {}
+          },
+          secondState
+        );
+        return Object.assign({}, el, item);
+      });
 
     let diffArray = new Array(firstState.items.length).fill(null);
 
@@ -661,11 +668,23 @@ class DomSnapshot {
       };
     });
   }
-  _serializeNode(styleNode, node: Node, index: number, source, nodesMap: WeakMap<Node, number>) {
+  _serializeNode(
+    styleNode,
+    node: Node,
+    index: number,
+    source,
+    nodesMap: WeakMap<Node, number>
+  ) {
     let payload = this._formatStyle(styleNode, node, index, source, nodesMap);
     return payload;
   }
-  _formatStyle(styleNode, node, index, source, nodesMap: WeakMap<Node, number>) {
+  _formatStyle(
+    styleNode,
+    node,
+    index,
+    source,
+    nodesMap: WeakMap<Node, number>
+  ) {
     const result = {
       styles: [],
       nodeName: this._getNameForNode(node.nodeName),
@@ -846,7 +865,7 @@ class DomSnapshot {
     if (!this.restrictedNodeTypes.includes(node.nodeType)) {
       if (this.skipDisplayNone && node.style && nodeStyle.length) {
         if (nodeStyle.display === "none") {
-        //   node.dataset.ignored = true;
+          //   node.dataset.ignored = true;
           return false;
         }
       }
@@ -900,34 +919,34 @@ class DomSnapshot {
     const { nodeName, textContent, nodeType, isSVG } = params;
 
     if (this.restrictedNodeTypes.includes(parseInt(nodeType))) {
-      node = isSVG ? this._getSVGNode('text') : this._getTextNode(textContent);
+      node = isSVG ? this._getSVGNode("text") : this._getTextNode(textContent);
     } else if (isSVG) {
       node = this._getSVGNode(nodeName);
     } else {
       node = this._getNodeByName(nodeName);
       this._addTextContent(node, params);
-	}
-	
-	if (typeof node.setAttribute === 'function') {
-		node.setAttribute(this._nodeSelectorName(), params.index);
-	}
+    }
+
+    if (typeof node.setAttribute === "function") {
+      node.setAttribute(this._nodeSelectorName(), params.index);
+    }
 
     if (this._isNotEmptyArray(params.attributes)) {
       try {
         this._forEach(params.attributes, ([name, value]) => {
           if (name) {
             if (isSVG) {
-				if (name.includes('data-')) {
-					node.setAttribute(name, value);
-				} else {
-					node.setAttributeNS(null, name, value);
-				}
+              if (name.includes("data-")) {
+                node.setAttribute(name, value);
+              } else {
+                node.setAttributeNS(null, name, value);
+              }
             } else {
               if (this._isSafeAttribute(name)) {
-				  if (name === 'id') {
-					  // don't handle ids
-					return;
-				  }
+                if (name === "id") {
+                  // don't handle ids
+                  return;
+                }
                 node.setAttribute(name, value);
               }
             }
@@ -990,15 +1009,20 @@ class DomSnapshot {
   _nodeSelectorValue(index) {
     return index;
   }
-  _insertNode(node: Node, obj: ISerializedNode, fragment: DocumentFragment, nodesIndex: INodesIndex) {
-	let parentId = obj.parent;
+  _insertNode(
+    node: Node,
+    obj: ISerializedNode,
+    fragment: DocumentFragment,
+    nodesIndex: INodesIndex
+  ) {
+    let parentId = obj.parent;
     // const selector = `[${this._nodeSelectorName()}="${this._nodeSelectorValue(
     //   parentId
-	// )}"]`;
-	if (parentId === 0 && fragment.childNodes.length === 0) {
-		fragment.appendChild(node);
-		return;
-	}
+    // )}"]`;
+    if (parentId === 0 && fragment.childNodes.length === 0) {
+      fragment.appendChild(node);
+      return;
+    }
     // || nodesIndex[parentId]
     const parent = nodesIndex[parentId] || fragment;
     if (node === parent) {

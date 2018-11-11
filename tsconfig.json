@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es2017",
+        "moduleResolution": "node",
+        "newLine": "LF",
+        "rootDir": "src",
+        "outDir": "dist",
+        "sourceMap": true,
+        "declaration": true,
+    },
+    "files": ["src/index.ts"]
+}

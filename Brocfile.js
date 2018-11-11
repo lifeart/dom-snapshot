@@ -1,4 +1,4 @@
-/* global require */
+/* global require, module */
 const funnel = require('broccoli-funnel');
 const merge = require('broccoli-merge-trees');
 const LiveReload = require('broccoli-livereload');
@@ -8,20 +8,8 @@ const watchify = require('broccoli-watchify');
 
 const appRoot = 'src';
 
-var cjsTree = typescript(appRoot, {
-	tsconfig: {
-		compilerOptions: {
-			module: 'commonjs',
-			target: 'es5',
-			moduleResolution: 'node',
-			newLine: 'LF',
-			rootDir: appRoot,
-			outDir: 'dist',
-			sourceMap: true,
-			declaration: true,
-		},
-		files: ['src/index.ts', 'src/tests/**'],
-	},
+
+const cjsTree = typescript(appRoot, {
 	throwOnError: false,
 	annotation: 'compile program',
 });

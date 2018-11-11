@@ -16,6 +16,26 @@ declare global {
   }
 }
 
+interface ISerializedNode {
+	styles: any[],
+	nodeName: string,
+	index: number,
+	attributes: any[],
+	nodeType: string,
+	pseudoselectors: undefined | {
+		after?: any,
+		before?: any
+	},
+	parent: number,
+	isSVG: boolean,
+	textContent: string
+}
+
+interface INodesIndex {
+	[key: number]: Node
+}
+
+
 import ESCAPED_ATTRIBUTES from "./constants/escaped-attributes";
 import FIREBASE_DEFAULT_CONFIG from "./config/firebase-default-config";
 import INHERIT_STYLE_ATTRIBUTES from "./constants/inherit-style-attributes";
@@ -25,7 +45,6 @@ import NODE_NAMES_TO_IGNORE from "./constants/node-names-to-ignore";
 import NODE_NAMES_TO_REPLACE from "./constants/node-names-to-replace";
 import DOM_PSEUDOSELECTORS from "./constants/dom-pseudoselectors";
 import collectMeta from "./utils/collect-meta";
-import isSvg from "./utils/is-svg";
 
 class DomSnapshot {
   public firebase?: firebase;
@@ -194,7 +213,7 @@ class DomSnapshot {
     return value;
   }
   _isSVG(element) {
-    return isSvg(element);
+	return element.namespaceURI === this._NAMESPACES.SVG;
   }
   _getBodyAttributes() {
     return this._extractNodeAttributes(this._getBodyNode());
@@ -296,14 +315,14 @@ class DomSnapshot {
 
     head.appendChild(style);
   }
-  _getDomNodeFromArgument(selector) {
+  _getDomNodeFromArgument(selector): Node | null {
     let target =
       typeof selector === "object"
         ? selector
         : document.querySelector(selector);
     return target;
   }
-  _cleanDomNode(target) {
+  _cleanDomNode(target: Node) {
     while (target.firstChild) {
       target.removeChild(target.firstChild);
     }
@@ -312,7 +331,10 @@ class DomSnapshot {
     return this.createSnapshot(this._getDomNodeFromArgument(selector));
   }
   renderSnapshot(selector, snapshot, rewriteDomContent = true) {
-    let target = this._getDomNodeFromArgument(selector);
+	let target = this._getDomNodeFromArgument(selector);
+	if (target === null) {
+		throw new Error(`unable to find target by selector ${selector}`);
+	}
     if (rewriteDomContent) {
       this._cleanDomNode(target);
     }
@@ -384,10 +406,10 @@ class DomSnapshot {
     }
     return JSON.parse(JSON.stringify(obj));
   }
-  _copyWorld(rootNode = false, source) {
+  _copyWorld(rootNode: Node | boolean = false, source) {
     return this._copyWorldTo(rootNode, source);
   }
-  _copyWorldTo(rootNode, source) {
+  _copyWorldTo(rootNode: Node | boolean, source) {
     const pseudoSelectorsStylesArray = [];
     const reindexMap = {};
     let items = source.items;
@@ -416,13 +438,13 @@ class DomSnapshot {
 
     if (!isBodyNodeRoot) {
       capturedNodes.unshift(rootNode);
-    }
+	}
+	
+	const nodesMap = new WeakMap();
 
     for (let i = 0; i < capturedNodes.length; i++) {
-      let item = capturedNodes[i];
-      if (item.dataset) {
-        item.dataset[this._nodeSelectorDatasetName()] = i;
-      }
+	  let item = capturedNodes[i];
+	  nodesMap.set(item, i);
       let nodeStyle = this._getStyleForNode(item);
       if (this._shouldTakeElement(item, nodeStyle)) {
         if (item.dataset && this._USE_PSEUDOSELECTORS) {
@@ -435,7 +457,7 @@ class DomSnapshot {
             pseudoSelectorsStylesArray.push(pseudoselecorStyles);
           }
         }
-        items.push(this._serializeNode(nodeStyle, item, i, source));
+        items.push(this._serializeNode(nodeStyle, item, i, source, nodesMap));
         reindexMap[i] = items.length - 1;
       }
     }
@@ -482,14 +504,13 @@ class DomSnapshot {
         .toString(36)
         .slice(-2);
 
-    let nodesIndex = {};
+    const nodesIndex: INodesIndex = {};
     this._forEach(source.items, el => {
-      let node = this._createNode(el, stylesToUppend, source);
+      let node: Node = this._createNode(el, stylesToUppend, source);
       nodesIndex[el.index] = node;
       this._insertNode(node, el, fragment, nodesIndex);
-    });
-
-    nodesIndex = {};
+	});
+	
     stylesToUppend.push(
       `html { ${this._getNodeStyleText(source.HTML_STYLE, source)} }`
     );
@@ -579,14 +600,13 @@ class DomSnapshot {
   _getNameForNode(nodeName) {
     return this.NODE_NAMES_TO_REPLACE[nodeName] || nodeName;
   }
-  _getParentForNode(node) {
-    let parent = node.parentNode
-      ? node.parentNode.dataset[this._nodeSelectorDatasetName()]
-      : 0;
+  _getParentForNode(node, nodesMap: WeakMap<Node, number>) {
+	let parentId = nodesMap.has(node.parentNode) ? nodesMap.get(node.parentNode) : 0;
+    let parent = parentId ? parentId : 0;
     if (!this.isNotUndefined(parent)) {
       return 0;
     }
-    return parseInt(parent);
+    return parent;
   }
   _getNodeTextContent(node) {
     return node.children ? "" : node.data;
@@ -640,18 +660,18 @@ class DomSnapshot {
       };
     });
   }
-  _serializeNode(styleNode, node, index, source) {
-    let payload = this._formatStyle(styleNode, node, index, source);
+  _serializeNode(styleNode, node: Node, index: number, source, nodesMap: WeakMap<Node, number>) {
+    let payload = this._formatStyle(styleNode, node, index, source, nodesMap);
     return payload;
   }
-  _formatStyle(styleNode, node, index, source) {
+  _formatStyle(styleNode, node, index, source, nodesMap: WeakMap<Node, number>) {
     const result = {
       styles: [],
       nodeName: this._getNameForNode(node.nodeName),
       index,
       attributes: [],
       nodeType: node.nodeType,
-      parent: this._getParentForNode(node),
+      parent: this._getParentForNode(node, nodesMap),
       isSVG: this._isSVG(node),
       textContent: this._getNodeTextContent(node)
     };
@@ -678,7 +698,7 @@ class DomSnapshot {
       acceptNode: node => {
         return !this.NODE_NAMES_TO_IGNORE.includes(node.nodeName)
           ? NodeFilter.FILTER_ACCEPT
-          : undefined;
+          : NodeFilter.FILTER_REJECT;
       }
     });
     let n = null;
@@ -691,7 +711,7 @@ class DomSnapshot {
     this._fbSetSnapshot(id, state);
     this._fbAddToSnapshotList(id, { visible: true, meta: state.meta });
   }
-  createSnapshot(rootNode = false) {
+  createSnapshot(rootNode: boolean | Node = false) {
     let source = {};
     this._clearState(source);
     this._copyWorld(rootNode, source);
@@ -818,7 +838,7 @@ class DomSnapshot {
 
     if (node.parentNode && node.parentNode.dataset.ignored) {
       if (node.dataset) {
-        node.dataset.ignored = true;
+        // node.dataset.ignored = true;
       }
       return false;
     }
@@ -826,7 +846,7 @@ class DomSnapshot {
     if (!this.restrictedNodeTypes.includes(node.nodeType)) {
       if (this.skipDisplayNone && node.style && nodeStyle.length) {
         if (nodeStyle.display === "none") {
-          node.dataset.ignored = true;
+        //   node.dataset.ignored = true;
           return false;
         }
       }
@@ -861,9 +881,9 @@ class DomSnapshot {
     }
   }
   _createNode(
-    params = {
+    params: ISerializedNode = {
       nodeType: "3",
-      index: "3",
+      index: 3,
       textContent: "noop",
       attributes: [],
       styles: [],
@@ -880,20 +900,28 @@ class DomSnapshot {
     const { nodeName, textContent, nodeType, isSVG } = params;
 
     if (this.restrictedNodeTypes.includes(parseInt(nodeType))) {
-      node = this._getTextNode(textContent);
+      node = isSVG ? this._getSVGNode('text') : this._getTextNode(textContent);
     } else if (isSVG) {
       node = this._getSVGNode(nodeName);
     } else {
       node = this._getNodeByName(nodeName);
       this._addTextContent(node, params);
-    }
+	}
+	
+	if (typeof node.setAttribute === 'function') {
+		node.setAttribute(this._nodeSelectorName(), params.index);
+	}
 
     if (this._isNotEmptyArray(params.attributes)) {
       try {
         this._forEach(params.attributes, ([name, value]) => {
           if (name) {
             if (isSVG) {
-              node.setAttributeNS(this._NAMESPACES.SVG, name, value);
+				if (name.includes('data-')) {
+					node.setAttribute(name, value);
+				} else {
+					node.setAttributeNS(null, name, value);
+				}
             } else {
               if (this._isSafeAttribute(name)) {
                 node.setAttribute(name, value);
@@ -935,9 +963,9 @@ class DomSnapshot {
       }
     }
 
-    if (node.dataset) {
-      node.dataset.parent = params.parent;
-    }
+    // if (node.dataset) {
+    //   node.dataset.parent = params.parent;
+    // }
     return node;
   }
   _styleTextForNode(index, styles, postfix = "", source) {
@@ -958,13 +986,17 @@ class DomSnapshot {
   _nodeSelectorValue(index) {
     return index;
   }
-  _insertNode(node, obj, fragment, nodesIndex) {
-    let parentId = node.dataset ? node.dataset.parent : obj.parent;
-    const selector = `[${this._nodeSelectorName()}="${this._nodeSelectorValue(
-      parentId
-    )}"]`;
+  _insertNode(node: Node, obj: ISerializedNode, fragment: DocumentFragment, nodesIndex: INodesIndex) {
+	let parentId = obj.parent;
+    // const selector = `[${this._nodeSelectorName()}="${this._nodeSelectorValue(
+    //   parentId
+	// )}"]`;
+	if (parentId === 0 && fragment.childNodes.length === 0) {
+		fragment.appendChild(node);
+		return;
+	}
     // || nodesIndex[parentId]
-    const parent = fragment.querySelector(selector) || fragment;
+    const parent = nodesIndex[parentId] || fragment;
     if (node === parent) {
       return;
     }

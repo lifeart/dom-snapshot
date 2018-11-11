@@ -15,7 +15,7 @@ var cjsTree = typescript(appRoot, {
 			target: 'es5',
 			moduleResolution: 'node',
 			newLine: 'LF',
-			rootDir: 'src',
+			rootDir: appRoot,
 			outDir: 'dist',
 			sourceMap: true,
 			declaration: true,
@@ -44,69 +44,7 @@ const css = compileSass(
 );
 
 
-// module: 'ESNext',
-// target: 'es2017',
-// inlineSources: true,
-// inlineSourceMap: true,
-// declaration: true,
-// baseDir: 'src',
-// rootDir: 'src',
-// moduleResolution: 'ES6',
-// newLine: 'LF',
-// rootDir: 'src',
-// outDir: 'dist',
-// sourceMap: true
-
-
-// module: 'commonjs',
-// target: 'es2017',
-// inlineSources: true,
-// inlineSourceMap: true,
-// declaration: true,
-// baseDir: 'src',
-// rootDir: 'src',
-// moduleResolution: 'node',
-// newLine: 'LF',
-// rootDir: 'src',
-// outDir: 'dist',
-// sourceMap: true
-
-// var cjsTree = typescript(appRoot, {
-// 	tsconfig: {
-// 		compilerOptions: {
-// module: "commonjs",
-// target: "es5",
-// moduleResolution: "node",
-// newLine: "LF",
-// baseDir: 'src',
-// rootDir: "src",
-// outDir: "dist",
-// sourceMap: true,
-// declaration: true,
-
-
-// module: 'commonjs',
-// target: 'es2017',
-// // inlineSources: true,
-// // inlineSourceMap: true,
-// declaration: true,
-// baseDir: 'src',
-// rootDir: 'src',
-// noImplicitUseStrict: true,
-// moduleResolution: 'ES6',
-// // noEmitHelpers: true,
-// // noResolve: true,
-// newLine: 'LF',
-// outDir: 'dist',
-// sourceMap: true
-// 		},
-// 		files: ['index.ts'],
-// 	},
-// 	throwOnError: false,
-// 	annotation: 'compile program',
-// });
-
-let btree = watchify(cjsTree, {
+let browserTree = watchify(cjsTree, {
 	browserify: {
 		entries: ['index.js'],
 		debug: true
@@ -116,12 +54,12 @@ let btree = watchify(cjsTree, {
 });
 
 
-let tree = merge([html, btree, css], {
+let mergedFiles = merge([html, browserTree, css], {
 	annotation: 'Final output'
 });
 
-tree = new LiveReload(tree, {
+let finalTree = new LiveReload(mergedFiles, {
 	target: 'index.html',
 });
 
-module.exports = tree;
+module.exports = finalTree;

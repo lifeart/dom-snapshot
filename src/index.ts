@@ -172,7 +172,8 @@ class DomSnapshot {
     }
     return (
       !attrName.includes("ng-") &&
-      !attrName.includes('"') &&
+	  !attrName.includes('"') &&
+	  !attrName.includes("data-uid_") && 
       !attrName.includes("style")
     );
   }
@@ -719,7 +720,6 @@ class DomSnapshot {
     this.addMeta("URL", window.location.href, source as any);
     this.addMeta("Browser", window.navigator.userAgent, source as any);
     let state = this._getState(source);
-    console.log("state", state);
     return state;
   }
   saveSnapshot(customId = false, state) {
@@ -924,6 +924,10 @@ class DomSnapshot {
 				}
             } else {
               if (this._isSafeAttribute(name)) {
+				  if (name === 'id') {
+					  // don't handle ids
+					return;
+				  }
                 node.setAttribute(name, value);
               }
             }
@@ -974,7 +978,7 @@ class DomSnapshot {
     )}"]${postfix} { ${this._getNodeStyleText(styles, source)} }`;
   }
   _nodeSelectorName() {
-    return `data-${this._nodeSelectorDatasetName()}`;
+    return `data-uid_${this._nodeSelectorDatasetName()}`;
   }
   _nodeSelectorDatasetName() {
     if (this.uidPrefix !== null) {

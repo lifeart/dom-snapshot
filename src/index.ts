@@ -1027,7 +1027,12 @@ class DomSnapshot {
     if (node === parent) {
       return;
     }
-    parent.appendChild(node);
+    if (typeof parent.appendChild === 'function') {
+      parent.appendChild(node);
+    } else {
+      fragment.appendChild(node);
+    }
+   
   }
   _getValueOrEmptyString(obj, key) {
     if (key in obj) {

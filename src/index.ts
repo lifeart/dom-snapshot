@@ -1028,7 +1028,11 @@ class DomSnapshot {
       return;
     }
     if (typeof parent.appendChild === 'function') {
-      parent.appendChild(node);
+      try {
+        parent.appendChild(node);
+      } catch(e) {
+        fragment.appendChild(node);
+      }
     } else {
       fragment.appendChild(node);
     }

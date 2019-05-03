@@ -603,19 +603,20 @@ broccoli-watchify@^1.0.1:
     tree-sync "^1.1.4"
     xtend "^4.0.1"
 
-broccoli@^2.0.1:
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/broccoli/-/broccoli-2.0.1.tgz#3611d643bf4b2666b565dc24cc5307fc80f62bf6"
-  integrity sha512-ipHuKVjO8jPJE3DKFHLXlj8DcsbGH8OQ1DlHaAWfuQya1qe6lgEi1+kyeKWCccaJlEtEq40EQ50Eiq2M0hxOfQ==
+broccoli@^2.3.0:
+  version "2.3.0"
+  resolved "https://registry.yarnpkg.com/broccoli/-/broccoli-2.3.0.tgz#b3f71b2c3d02fc042988e208827a09c75dd7b350"
+  integrity sha512-TeYMYlCGFK8EGk4Wce1G1uU3i52+YxRqP3WPOVDojC1zUk+Gi40wHBzUT2fncQZDl26dmCQMNugtHKjvUpcGQg==
   dependencies:
     broccoli-node-info "1.1.0"
     broccoli-slow-trees "^3.0.1"
     broccoli-source "^1.1.0"
     commander "^2.15.1"
     connect "^3.6.6"
+    esm "^3.2.4"
     findup-sync "^2.0.0"
     handlebars "^4.0.11"
-    heimdalljs "^0.2.5"
+    heimdalljs "^0.2.6"
     heimdalljs-logger "^0.1.9"
     mime-types "^2.1.19"
     promise.prototype.finally "^3.1.0"
@@ -1471,6 +1472,11 @@ eslint@^5.6.0:
     strip-json-comments "^2.0.1"
     table "^5.0.2"
     text-table "^0.2.0"
+
+esm@^3.2.4:
+  version "3.2.22"
+  resolved "https://registry.yarnpkg.com/esm/-/esm-3.2.22.tgz#5062c2e22fee3ccfee4e8f20da768330da90d6e3"
+  integrity sha512-z8YG7U44L82j1XrdEJcqZOLUnjxco8pO453gKOlaMD1/md1n/5QrscAmYG+oKUspsmDLuBFZrpbxI6aQ67yRxA==
 
 espree@^4.0.0:
   version "4.1.0"

@@ -9,7 +9,11 @@ JS * deserialization supported.
 
 # Usage
 ```html
-  <script src="https://gitcdn.xyz/cdn/lifeart/dom-snapshot/master/index.js"></script>
+  <script src="https://gitcdn.xyz/cdn/lifeart/dom-snapshot/master/dist/index.js"></script>
+  // or
+  <script src="https://cdn.jsdelivr.net/gh/lifeart/dom-snapshot/dist/index.js"></script>
+  // or use this gh repo
+
 ```
 ```javascript
 	const snapshot = new DomSnapshot();

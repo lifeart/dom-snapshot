@@ -15,9 +15,13 @@ JS * deserialization supported.
   // or use this gh repo
 
 ```
+
+By default DomSnapshot configured to use demo firebase api to manage snapshots
 ```javascript
 	const snapshot = new DomSnapshot();
+	// waiting for firebase initialization
 	snapshot.loaded().then(()=>{
+	        // saving current DOM as snapshot
 		const id = snapshot.saveSnapshot();
 		console.log('snapshotId', id);
 		setTimeout(() => {
@@ -27,8 +31,11 @@ JS * deserialization supported.
 	});
 
 
-	/// or
+```
 
+"Offline" usage example (without firebase sync)
+
+```javascript
 	
 	var selector  = '#readme > article > pre';
 
@@ -42,14 +49,8 @@ JS * deserialization supported.
 
 	console.log(diff);
 
-
-	/// 
-
 	// capture node and send it to server
-
-	snapshoter.saveSnapshot(Date.now(), snapshoter.createSnapshot('body'))
-
-	
+	snapshoter.saveSnapshot(Date.now(), snapshoter.createSnapshot('body'))	
 ```
 
 # Methods

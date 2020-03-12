@@ -4,7 +4,7 @@
   "description": "Take your dom tree picture",
   "main": "index.js",
   "scripts": {
-    "build": "broccoli build --overwrite",
+    "build": "broccoli build",
     "serve": "broccoli serve",
     "copy-artifacts": "cp ./dist/index.js ./index.js"
   },

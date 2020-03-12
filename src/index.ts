@@ -1184,6 +1184,9 @@ class DomSnapshot {
   }
 }
 
+if (typeof window !== 'undefined') {
+  (window as any).DomSnapshot = DomSnapshot;
+}
 if (typeof window.AUTOSTART === "boolean" && window.AUTOSTART === true) {
   new DomSnapshot();
 } else {

@@ -30,7 +30,7 @@
     "broccoli-funnel": "^2.0.2",
     "broccoli-livereload": "^1.3.0",
     "broccoli-merge-trees": "^3.0.2",
-    "broccoli-plugin": "^3.0.0",
+    "broccoli-plugin": "^4.0.7",
     "broccoli-requirejs": "^2.0.0",
     "broccoli-rollup": "^4.1.1",
     "broccoli-sass-source-maps": "^4.0.0",

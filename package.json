@@ -36,7 +36,7 @@
     "broccoli-sass-source-maps": "^4.0.0",
     "broccoli-typescript-compiler": "^4.0.1",
     "broccoli-watchify": "^1.0.1",
-    "eslint": "^6.4.0",
+    "eslint": "^7.31.0",
     "rollup-plugin-typescript": "^1.0.1",
     "sass": "^1.14.1",
     "tslib": "^1.9.3",
